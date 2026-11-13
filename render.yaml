@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tunshi-tiandi-brawl-server
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health

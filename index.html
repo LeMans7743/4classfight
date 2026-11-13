@@ -1,0 +1,4731 @@
+<!-- 已完成多玩家 HUD 調整與線上同步邏輯 -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>吞食天地風格 1v1 平面格鬥 — 街機＆手機雙棲版</title>
+  <script src="config.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #211829 0%, #0d0a12 75%);
+      color: #f4efe6;
+      font-family: "Microsoft JhengHei", "PingFang TC", "Segoe UI", sans-serif;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+    }
+
+    .game-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      max-width: 980px;
+      max-height: 100vh;
+    }
+
+    /* ================= 頂部標題與快捷列 ================= */
+    .title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0 2px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .title-bar h1 {
+      font-size: clamp(15px, 2.5vw, 20px);
+      letter-spacing: 1.5px;
+      background: linear-gradient(180deg, #ffe270 0%, #ff9f1c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 0 #59160a);
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .quick-btn {
+      background: #272030;
+      border: 1px solid #564769;
+      color: #e9e2f2;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .quick-btn:active {
+      background: #ffbe0b;
+      color: #16111c;
+    }
+
+    /* ================= 舞台容器 ================= */
+    .stage-container {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      border: 3px solid #6b5642;
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      background: #14101a;
+      flex-shrink: 1;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ================= 角色與地圖選擇 Overlay ================= */
+    .select-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(14, 10, 22, 0.95), rgba(30, 16, 24, 0.97));
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(8px, 1.5vw, 14px) clamp(10px, 2vw, 18px);
+      z-index: 10;
+      gap: 6px;
+      backdrop-filter: blur(4px);
+      overflow-y: auto;
+    }
+
+    .select-overlay.hidden {
+      display: none;
+    }
+
+    .select-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .select-header h2 {
+      font-size: clamp(16px, 2.2vw, 22px);
+      color: #ffd166;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 0 #5c1810;
+    }
+
+    .select-header p {
+      font-size: 11px;
+      color: #cbbdd6;
+      margin-top: 2px;
+    }
+
+    .select-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mode-switch-group, .diff-switch-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: #181220;
+      border: 1px solid #524269;
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .diff-label {
+      font-size: 11px;
+      color: #cbbdd6;
+      padding: 0 6px;
+      font-weight: 700;
+    }
+
+    .mode-btn, .diff-btn {
+      border: none;
+      background: transparent;
+      color: #b8acc7;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(180deg, #ffd166, #f77f00);
+      color: #1a1216;
+    }
+
+    .diff-btn.active[data-diff="easy"] {
+      background: #2dc653;
+      color: #0f1f14;
+    }
+
+    .diff-btn.active[data-diff="normal"] {
+      background: #ffbe0b;
+      color: #1a1216;
+    }
+
+    .diff-btn.active[data-diff="hard"] {
+      background: #e63946;
+      color: #ffffff;
+    }
+
+    .roster-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .char-card {
+      position: relative;
+      background: linear-gradient(145deg, #2a2134, #1d1624);
+      border: 2px solid #493c59;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+      overflow: hidden;
+    }
+
+    .char-card.p1-cursor {
+      border-color: #ff4d5a;
+      box-shadow: 0 0 14px rgba(255, 77, 90, 0.5);
+    }
+
+    .char-card.p2-cursor {
+      border-color: #4da3ff;
+      box-shadow: 0 0 14px rgba(77, 163, 255, 0.5);
+    }
+
+    .char-card.p1-cursor.p2-cursor {
+      border-color: #ffcc4d;
+      box-shadow: -3px 0 12px rgba(255, 77, 90, 0.55), 3px 0 12px rgba(77, 163, 255, 0.55);
+    }
+
+    .char-thumb {
+      width: clamp(44px, 6.5vw, 64px);
+      height: clamp(44px, 6.5vw, 64px);
+      border-radius: 6px;
+      object-fit: cover;
+      object-position: top center;
+      border: 2px solid #6b5b80;
+      background: #17121c;
+      flex-shrink: 0;
+    }
+
+    .char-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .char-name {
+      font-size: clamp(12px, 1.5vw, 15px);
+      font-weight: 800;
+      color: #fff5d6;
+    }
+
+    .char-title {
+      font-size: clamp(10px, 1.1vw, 11px);
+      color: #ffb703;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .char-moves {
+      font-size: clamp(9px, 1vw, 11px);
+      color: #c8bed4;
+      line-height: 1.28;
+    }
+
+    .cursor-badges {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      gap: 3px;
+    }
+
+    .badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .badge.p1 { background: #e63946; }
+    .badge.p2 { background: #3a86ff; }
+    .badge.p3 { background: #2dc653; }
+    .badge.p4 { background: #9b5de5; }
+    .badge.com { background: #7209b7; }
+    .badge.locked { outline: 2px solid #ffbe0b; }
+
+    /* ================= 連線對戰房與 2~4 人大亂鬥大廳介面 ================= */
+    .online-lobby-box {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(16, 11, 24, 0.94);
+      border: 1.5px solid #6b4c9a;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 11px;
+    }
+
+    .online-lobby-box.active {
+      display: flex;
+    }
+
+    .online-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .ws-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: 11px;
+      background: #2b1d38;
+      border: 1px solid #594173;
+      color: #e0d4f0;
+    }
+
+    .ws-status-badge.connected {
+      background: rgba(45, 198, 83, 0.18);
+      border-color: #2dc653;
+      color: #80ed99;
+    }
+
+    .ws-status-badge.disconnected {
+      background: rgba(230, 57, 70, 0.18);
+      border-color: #e63946;
+      color: #ff8fa3;
+    }
+
+    .online-input {
+      background: #140e1c;
+      border: 1px solid #5c4973;
+      color: #fff;
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .online-input:focus {
+      border-color: #ffd166;
+    }
+
+    .online-btn {
+      border: 1px solid #ffd166;
+      background: linear-gradient(180deg, #3c2854, #261838);
+      color: #ffd166;
+      border-radius: 5px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s ease;
+    }
+
+    .online-btn:hover {
+      background: linear-gradient(180deg, #ffd166, #f77f00);
+      color: #181020;
+    }
+
+    .online-btn.primary {
+      background: linear-gradient(180deg, #00b4d8, #0077b6);
+      border-color: #90e0ef;
+      color: #ffffff;
+    }
+
+    .online-btn.danger {
+      background: linear-gradient(180deg, #e63946, #9d0208);
+      border-color: #ff8fa3;
+      color: #ffffff;
+    }
+
+    .room-list-container {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 3px 0;
+      min-height: 34px;
+      align-items: center;
+    }
+
+    .room-item-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, #2b1e3d, #1c1328);
+      border: 1.5px solid #72519c;
+      border-radius: 6px;
+      padding: 4px 9px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .room-item-chip:hover {
+      border-color: #ffd166;
+      transform: translateY(-1px);
+    }
+
+    .room-slots-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .room-slot-card {
+      background: #1b1326;
+      border: 1.5px dashed #4a3b5c;
+      border-radius: 6px;
+      padding: 4px 7px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      min-height: 30px;
+    }
+
+    .room-slot-card.filled {
+      border-style: solid;
+      background: #281c38;
+    }
+
+    .room-slot-card.slot-1 { border-color: #ff4d5a; }
+    .room-slot-card.slot-2 { border-color: #4da3ff; }
+    .room-slot-card.slot-3 { border-color: #2dc653; }
+    .room-slot-card.slot-4 { border-color: #c77dff; }
+
+    .map-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(18, 13, 24, 0.88);
+      border: 1px solid #3f344d;
+      border-radius: 6px;
+      padding: 5px 10px;
+    }
+
+    .map-bar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffd166;
+      white-space: nowrap;
+    }
+
+    .map-options {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    .map-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #272030;
+      border: 2px solid #463b54;
+      border-radius: 6px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 11px;
+      color: #e2daec;
+      white-space: nowrap;
+    }
+
+    .map-chip.active {
+      border-color: #ffbe0b;
+      background: #3d2e47;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .map-chip img {
+      width: 26px;
+      height: 16px;
+      object-fit: cover;
+      border-radius: 3px;
+    }
+
+    .select-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 11, 19, 0.88);
+      border: 1px solid #3f344d;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .select-status.p1 { color: #ff7582; font-weight: 700; }
+    .select-status.p2 { color: #70b5ff; font-weight: 700; }
+
+    .start-btn {
+      background: linear-gradient(180deg, #ffbe0b, #fb5607);
+      color: #fff;
+      border: 2px solid #fff3b0;
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(251, 86, 7, 0.6);
+      white-space: nowrap;
+    }
+
+    /* ================= 預留虛擬按鍵操控區 (Virtual Controller Deck) ================= */
+    .virtual-controller-deck {
+      width: 100%;
+      max-width: 960px;
+      background: linear-gradient(180deg, #1b1622 0%, #120e17 100%);
+      border: 2px solid #3c314a;
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    /* 左側虛擬搖桿 (8向滑動觸控盤) */
+    .dpad-zone {
+      position: relative;
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #2d2538 0%, #191420 75%);
+      border: 3px solid #524366;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(0, 0, 0, 0.6);
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .dpad-cross {
+      position: absolute;
+      inset: 14px;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      align-items: center;
+      justify-items: center;
+      color: #8d7ea3;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .dpad-stick {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff7582, #c9184a);
+      border: 2px solid #ffd166;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+      transition: transform 0.04s linear;
+    }
+
+    /* 中央資訊 / 電腦鍵盤提示區 */
+    .deck-center-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+      font-size: 12px;
+      color: #bfb5cc;
+    }
+
+    .pc-keys-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pc-key-box {
+      background: #221c2b;
+      border: 1px solid #3f3452;
+      border-radius: 6px;
+      padding: 6px 10px;
+      line-height: 1.5;
+    }
+
+    kbd {
+      display: inline-block;
+      background: #2f293a;
+      border: 1px solid #514863;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 0 5px;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #fff;
+      margin: 0 1px;
+    }
+
+    /* 右側街機虛擬五鍵 (含必殺技 ULT 鍵) */
+    .action-buttons-zone {
+      position: relative;
+      width: 204px;
+      height: 136px;
+      flex-shrink: 0;
+      touch-action: none;
+    }
+
+    .v-btn {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.75);
+      color: #fff;
+      font-family: inherit;
+      font-weight: 900;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.1;
+      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.65);
+      cursor: pointer;
+      touch-action: none;
+      transition: transform 0.06s ease, filter 0.06s ease, box-shadow 0.15s ease;
+    }
+
+    .v-btn small {
+      font-size: 8px;
+      opacity: 0.88;
+      font-weight: 700;
+    }
+
+    .v-btn:active, .v-btn.pressed {
+      transform: scale(0.90);
+      filter: brightness(1.25);
+    }
+
+    /* 鑽石型街機鍵位 + 左上超必殺技鍵 */
+    .v-btn.btn-light {
+      left: 34px;
+      top: 42px;
+      background: radial-gradient(circle at 30% 30%, #4cc9f0, #0077b6);
+    }
+
+    .v-btn.btn-heavy {
+      left: 90px;
+      top: 6px;
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle at 30% 30%, #ffbe0b, #d90429);
+      border-color: #fff3b0;
+    }
+
+    .v-btn.btn-jump {
+      left: 90px;
+      bottom: 2px;
+      background: radial-gradient(circle at 30% 30%, #52b788, #1b4332);
+    }
+
+    .v-btn.btn-dash {
+      right: 2px;
+      top: 42px;
+      background: radial-gradient(circle at 30% 30%, #b5179e, #560bad);
+    }
+
+    .v-btn.btn-ult {
+      left: 0px;
+      top: 0px;
+      width: 54px;
+      height: 54px;
+      background: radial-gradient(circle at 30% 30%, #6c757d, #343a40);
+      border-color: #adb5bd;
+      opacity: 0.65;
+    }
+
+    .v-btn.btn-ult.ready {
+      opacity: 1;
+      background: radial-gradient(circle at 30% 30%, #fff3b0, #ff0054 65%, #7209b7 100%);
+      border-color: #ffd166;
+      box-shadow: 0 0 18px rgba(255, 190, 11, 0.95), 0 0 30px rgba(255, 0, 84, 0.7);
+      animation: ultPulse 0.7s infinite alternate;
+    }
+
+    @keyframes ultPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.09); }
+    }
+
+    /* ================= 手機版專屬響應式調整 ================= */
+    @media (max-width: 820px) {
+      body {
+        padding: 4px 6px;
+        justify-content: flex-start;
+      }
+
+      .game-wrapper {
+        height: 100%;
+        gap: 6px;
+      }
+
+      .pc-keys-row {
+        display: none; /* 手機隱藏鍵盤提示，讓虛擬按鍵區更乾淨 */
+      }
+
+      .roster-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+      }
+
+      .char-moves {
+        display: none; /* 手機小螢幕卡片精簡顯示 */
+      }
+
+      .virtual-controller-deck {
+        flex: 1;
+        max-height: 210px;
+        padding: 8px 14px;
+      }
+    }
+
+    /* 手機橫向模式：緊湊排列 */
+    @media (max-height: 520px) and (orientation: landscape) {
+      .title-bar { display: none; }
+      .game-wrapper {
+        flex-direction: row;
+        align-items: stretch;
+        height: 100%;
+      }
+      .stage-container {
+        height: 100%;
+        width: auto;
+        flex: 1;
+      }
+      .virtual-controller-deck {
+        width: 210px;
+        max-height: none;
+        flex-direction: column;
+        justify-content: space-around;
+        padding: 8px;
+      }
+      .deck-center-info { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <div class="title-bar">
+      <h1>吞食天地・2～4人大亂鬥連線版</h1>
+      <div class="top-actions">
+        <button id="btnTopSelect" class="quick-btn" type="button">重選武將 / 房間 (C)</button>
+        <button id="btnTopReset" class="quick-btn" type="button">重置回合 (R)</button>
+        <button id="btnTopBox" class="quick-btn" type="button">判定框 (B)</button>
+      </div>
+    </div>
+
+    <div class="stage-container">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <!-- 角色與地圖選擇介面 -->
+      <div id="selectOverlay" class="select-overlay">
+        <div class="select-top-bar">
+          <div class="select-header">
+            <h2>武將與戰場選擇 (支援 2～4 人同場大亂鬥)</h2>
+            <p id="selectGuideText">點選卡片選擇 1P 與對手，再按「立即開戰」</p>
+          </div>
+
+          <div class="select-controls-right">
+            <!-- 對戰模式切換 -->
+            <div id="modeSwitchGroup" class="mode-switch-group">
+              <button id="btnModeCom" class="mode-btn active" type="button">單機 vs COM</button>
+              <button id="btnModePvp" class="mode-btn" type="button">雙人同機 PVP</button>
+              <button id="btnModeOnline" class="mode-btn" type="button">🌐 連線對戰房 (2~4人)</button>
+            </div>
+
+            <!-- 單機大亂鬥總人數選擇 (2~4人) -->
+            <div id="brawlCountGroup" class="diff-switch-group">
+              <span class="diff-label">人數:</span>
+              <button class="diff-btn count-btn active" data-count="2" type="button">2人(1v1)</button>
+              <button class="diff-btn count-btn" data-count="3" type="button">3人亂鬥</button>
+              <button class="diff-btn count-btn" data-count="4" type="button">4人亂鬥</button>
+            </div>
+
+            <!-- COM 難易度選擇 -->
+            <div id="diffSwitchGroup" class="diff-switch-group">
+              <span class="diff-label">COM:</span>
+              <button class="diff-btn active" data-diff="normal" type="button">普通</button>
+              <button class="diff-btn" data-diff="easy" type="button">簡單</button>
+              <button class="diff-btn" data-diff="hard" type="button">困難</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🌐 連線對戰房大廳與房間面板 -->
+        <div id="onlineLobbyPanel" class="online-lobby-box">
+          <!-- 尚未進入房間：輸入 ID 開房 + 公開房間即時列表 -->
+          <div id="onlineLobbyBrowser">
+            <div class="online-row" style="margin-bottom:5px;">
+              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                <span id="wsStatusBadge" class="ws-status-badge disconnected">🔴 尚未連線</span>
+                <input id="wsUrlInput" class="online-input" type="text" style="width:155px;" placeholder="ws://localhost:3000" />
+                <button id="btnConnectWs" class="online-btn" type="button">連線伺服器</button>
+              </div>
+              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                <input id="onlineNicknameInput" class="online-input" type="text" style="width:82px;" maxlength="10" placeholder="你的暱稱" value="猛將" />
+                <input id="onlineRoomIdInput" class="online-input" type="text" style="width:110px;" maxlength="16" placeholder="輸入房號 ID (如 888)" />
+                <button id="btnCreateRoom" class="online-btn primary" type="button">➕ 輸入ID開啟對戰房</button>
+                <button id="btnJoinRoomById" class="online-btn" type="button">🚪 輸入ID加入</button>
+              </div>
+            </div>
+            <div class="online-row">
+              <span style="color:#ffd166; font-weight:700; white-space:nowrap;">📡 公開對戰房列表 (點選直接加入)：</span>
+              <div id="onlineRoomList" class="room-list-container">
+                <span style="color:#9a8cb0;">目前尚無公開房間，請在上方輸入 ID 開啟第一個對戰房！</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 已在房間內：顯示房號 ID 與 1P~4P 參戰席位 -->
+          <div id="onlineRoomInside" style="display:none; flex-direction:column; gap:5px;">
+            <div class="online-row">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="activeRoomTitle" style="color:#ffd166; font-weight:900; font-size:13px;">🏠 房間 ID：【888】</span>
+                <span id="activeRoomSub" style="color:#b8acc7;">點選下方角色卡可即時更換你的出戰武將！</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:5px;">
+                <button id="btnAddRoomCom" class="online-btn" type="button">🤖 +加入COM湊人數</button>
+                <button id="btnRemoveRoomCom" class="online-btn" type="button">-移除COM</button>
+                <button id="btnLeaveRoom" class="online-btn danger" type="button">🚪 離開房間</button>
+              </div>
+            </div>
+            <div id="roomSlotsBar" class="room-slots-bar"></div>
+          </div>
+        </div>
+
+        <div id="rosterGrid" class="roster-grid"></div>
+
+        <div class="map-bar">
+          <span class="map-bar-label">戰場地圖：</span>
+          <div id="mapOptions" class="map-options"></div>
+        </div>
+
+        <div class="select-footer">
+          <span id="p1SelectStatus" class="select-status p1">1P 選擇中...</span>
+          <button id="btnStartMatch" class="start-btn" type="button">立即開戰 START!</button>
+          <span id="p2SelectStatus" class="select-status p2">COM 選擇中...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 預留虛擬按鍵操控區 (支援手機觸控滑動搖桿 + 四顆街機按鍵 + 電腦鍵盤提示) -->
+    <div class="virtual-controller-deck">
+      <!-- 左側 8 向虛擬搖桿 -->
+      <div id="dpadZone" class="dpad-zone">
+        <div class="dpad-cross">
+          <span>↖</span><span>▲</span><span>↗</span>
+          <span>◀</span><span></span><span>▶</span>
+          <span>↙</span><span>▼</span><span>↘</span>
+        </div>
+        <div id="dpadStick" class="dpad-stick"></div>
+      </div>
+
+      <!-- 中央資訊與電腦鍵位說明 -->
+      <div class="deck-center-info">
+        <div id="mobileModeNotice" style="color: #ffd166; font-weight: 700;">
+          三戰兩勝・60秒決戰｜集滿氣條可施放「必殺技 (ULT)」！
+        </div>
+        <div class="pc-keys-row">
+          <div class="pc-key-box">
+            <strong style="color:#ff6b6b;">1P 鍵盤：</strong>
+            移動 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+            跳 <kbd>Space</kbd> 輕 <kbd>F</kbd> 重 <kbd>G</kbd> 衝 <kbd>H</kbd> <strong style="color:#ffd166;">必殺 <kbd>J</kbd></strong>
+          </div>
+          <div id="p2KeyBox" class="pc-key-box">
+            <strong style="color:#66a3ff;">2P 鍵盤：</strong>
+            移動 <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>
+            跳 <kbd>Enter</kbd> 輕 <kbd>,</kbd> 重 <kbd>.</kbd> 衝 <kbd>/</kbd> <strong style="color:#ffd166;">必殺 <kbd>;</kbd></strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側 5 顆街機虛擬按鍵 (含必殺技 ULT) -->
+      <div class="action-buttons-zone">
+        <button id="vBtnUlt" class="v-btn btn-ult" type="button">
+          必殺<small>ULT</small>
+        </button>
+        <button id="vBtnLight" class="v-btn btn-light" type="button">
+          輕攻<small>LIGHT</small>
+        </button>
+        <button id="vBtnHeavy" class="v-btn btn-heavy" type="button">
+          重攻<small>HEAVY</small>
+        </button>
+        <button id="vBtnJump" class="v-btn btn-jump" type="button">
+          跳躍<small>JUMP</small>
+        </button>
+        <button id="vBtnDash" class="v-btn btn-dash" type="button">
+          衝刺<small>DASH</small>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 遊戲基礎設定與裝置偵測 (手機自動強制單機 vs COM)
+    // =========================================================================
+    function detectMobileDevice() {
+      return (
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        window.innerWidth <= 820
+      );
+    }
+
+    const CONFIG = {
+      canvasWidth: 960,
+      canvasHeight: 540,
+      arenaTopY: 315,
+      arenaBottomY: 522,
+
+      gravity: 1850,
+      moveSpeedX: 295,
+      moveSpeedY: 215,
+      jumpVelocity: 660,
+      groundFriction: 2200,
+      airFriction: 650,
+
+      dashSpeed: 760,
+      dashDuration: 0.14,
+      dashCooldown: 0.55,
+
+      playerWidth: 54,
+      playerHeight: 92,
+
+      // 三戰兩勝與 60 秒節奏設定
+      winsToMatch: 2,          // 三戰兩勝 (先拿 2 勝獲勝)
+      roundDuration: 60.0,     // 每局 60 秒倒數
+      rageTimeThreshold: 10.0, // 最後 10 秒微幅加速決戰
+      rageDamageMult: 1.15,    // 最後 10 秒傷害微幅加成 15%
+
+      // 集氣條設定 (必須集滿 100% 才能施放必殺技！揮空不加氣，集氣速度提升 x1.3)
+      maxEnergy: 100,
+      passiveEnergyPerSec: 1.56, // 緩慢自然集氣 (原 1.2 x 1.3)
+      whiffEnergyGain: 0,        // 揮空不加氣，必須命中或受擊才能集氣
+      hitEnergyGain: 15.6,       // 命中對手集氣 (原 12 x 1.3)
+      hurtEnergyGain: 18.2,      // 受擊集氣 (原 14 x 1.3)
+
+      roundTransitionDelay: 2.2,
+      matchOverDelay: 9.0,       // 三戰兩勝總冠軍勝利畫面展示時間 (可隨時按鍵或點擊跳過)
+      heavyShakeDuration: 0.20,
+      heavyShakeIntensity: 9
+    };
+
+    // COM 難易度參數表 (加入出招冷卻間隔，避免 AI 高頻連發秒殺)
+    const COM_DIFFICULTIES = {
+      easy: {
+        id: "easy",
+        label: "簡單",
+        reactionMin: 0.45,
+        reactionVar: 0.20,
+        attackInterval: 0.95, // 簡單 AI 攻擊間隔較長
+        aggression: 0.28,
+        ultUseChance: 0.35,   // 滿氣時施放必殺技機率
+        dodgeChance: 0.05,    // 幾乎不閃招
+        dashChaseChance: 0.06,
+        depthAccuracy: 36     // 對位較鬆散
+      },
+      normal: {
+        id: "normal",
+        label: "普通",
+        reactionMin: 0.28,
+        reactionVar: 0.14,
+        attackInterval: 0.65, // 標準街機攻擊節奏
+        aggression: 0.46,
+        ultUseChance: 0.65,
+        dodgeChance: 0.24,
+        dashChaseChance: 0.18,
+        depthAccuracy: 20
+      },
+      hard: {
+        id: "hard",
+        label: "困難",
+        reactionMin: 0.16,
+        reactionVar: 0.08,
+        attackInterval: 0.44, // 積極壓制但保有合理收招破綻
+        aggression: 0.68,
+        ultUseChance: 0.90,   // 滿氣抓準距離施放超必殺
+        dodgeChance: 0.52,
+        dashChaseChance: 0.35,
+        depthAccuracy: 12     // 精準對齊深度
+      }
+    };
+
+    const OUTLINE = "#16111c";
+    const IMAGE_CACHE = new Map();
+    const CROP_CANVAS_CACHE = new Map();
+
+    function getCachedImage(src) {
+      if (!src) return null;
+      if (!IMAGE_CACHE.has(src)) {
+        const img = new Image();
+        img.src = src;
+        IMAGE_CACHE.set(src, img);
+      }
+      return IMAGE_CACHE.get(src);
+    }
+
+    function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse = false) {
+      if (!crop || dw <= 0 || dh <= 0) return;
+      const img = getCachedImage(src);
+      const isReady = img && img.complete && img.naturalWidth > 0;
+
+      // 離屏 Canvas 快取：將高解析度原始照片預先裁切並繪製好邊框，大幅降低每幀 GPU/CPU 裁切負擔
+      if (isReady && typeof document !== "undefined" && document.createElement) {
+        const cacheKey = `${src}|${dw}|${dh}|${radius}|${isEllipse ? 1 : 0}|${crop.sx},${crop.sy},${crop.sw},${crop.sh}`;
+        let cachedCanvas = CROP_CANVAS_CACHE.get(cacheKey);
+        if (!cachedCanvas) {
+          const pad = 4;
+          const off = document.createElement("canvas");
+          off.width = dw + pad * 2;
+          off.height = dh + pad * 2;
+          const octx = off.getContext("2d");
+          if (octx) {
+            octx.save();
+            octx.beginPath();
+            if (isEllipse) {
+              octx.ellipse(pad + dw / 2, pad + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+            } else {
+              octx.roundRect(pad, pad, dw, dh, radius);
+            }
+            octx.clip();
+            const iw = img.naturalWidth;
+            const ih = img.naturalHeight;
+            octx.drawImage(img, crop.sx * iw, crop.sy * ih, crop.sw * iw, crop.sh * ih, pad, pad, dw, dh);
+            octx.restore();
+
+            octx.save();
+            octx.beginPath();
+            if (isEllipse) {
+              octx.ellipse(pad + dw / 2, pad + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+            } else {
+              octx.roundRect(pad, pad, dw, dh, radius);
+            }
+            octx.strokeStyle = OUTLINE;
+            octx.lineWidth = 2.4;
+            octx.stroke();
+            octx.restore();
+
+            cachedCanvas = off;
+            CROP_CANVAS_CACHE.set(cacheKey, cachedCanvas);
+          }
+        }
+        if (cachedCanvas) {
+          ctx.drawImage(cachedCanvas, dx - 4, dy - 4);
+          return;
+        }
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      if (isEllipse) {
+        ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+      } else {
+        ctx.roundRect(dx, dy, dw, dh, radius);
+      }
+      ctx.clip();
+
+      if (isReady) {
+        const iw = img.naturalWidth;
+        const ih = img.naturalHeight;
+        ctx.drawImage(img, crop.sx * iw, crop.sy * ih, crop.sw * iw, crop.sh * ih, dx, dy, dw, dh);
+      } else {
+        ctx.fillStyle = "#d4a373";
+        ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      if (isEllipse) {
+        ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+      } else {
+        ctx.roundRect(dx, dy, dw, dh, radius);
+      }
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawOutlinedRoundRect(ctx, x, y, w, h, r, fillStyle, strokeWidth = 2.2) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      ctx.fillStyle = fillStyle;
+      ctx.fill();
+      if (strokeWidth > 0) {
+        ctx.strokeStyle = OUTLINE;
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+      }
+    }
+
+    // =========================================================================
+    // 2. 地圖資料庫
+    // =========================================================================
+    const MAP_TEMPLATES = [
+      {
+        id: "airbase_plaza",
+        name: "空軍基地廣場 (實景)",
+        preview: "人物角色/地圖.jpg",
+        arenaTopY: 325,
+        arenaBottomY: 522,
+        draw(ctx) {
+          const W = CONFIG.canvasWidth;
+          const H = CONFIG.canvasHeight;
+          const img = getCachedImage("人物角色/地圖.jpg");
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, 0, -45, W, H + 55);
+            const roadShade = ctx.createLinearGradient(0, 300, 0, H);
+            roadShade.addColorStop(0, "rgba(15, 18, 26, 0.05)");
+            roadShade.addColorStop(1, "rgba(10, 12, 18, 0.38)");
+            ctx.fillStyle = roadShade;
+            ctx.fillRect(0, 300, W, H - 300);
+          } else {
+            ctx.fillStyle = "#3a404a";
+            ctx.fillRect(0, 0, W, H);
+          }
+        }
+      },
+      {
+        id: "three_kingdoms_wall",
+        name: "三國古城牆",
+        preview: "",
+        arenaTopY: 245,
+        arenaBottomY: 518,
+        draw(ctx, time) {
+          const W = CONFIG.canvasWidth;
+          const H = CONFIG.canvasHeight;
+          const wallBottom = 228;
+
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, wallBottom);
+          skyGrad.addColorStop(0, "#191124");
+          skyGrad.addColorStop(0.6, "#421f2b");
+          skyGrad.addColorStop(1, "#7a322d");
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, W, wallBottom);
+
+          ctx.fillStyle = "#2b2027";
+          ctx.fillRect(0, 120, W, wallBottom - 120);
+          for (let x = 15; x < W; x += 80) ctx.fillRect(x, 100, 42, 20);
+          ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.5;
+          for (let y = 135; y < wallBottom; y += 22) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          }
+
+          for (const fx of [160, 480, 800]) {
+            const flicker = Math.sin(time * 14 + fx) * 3;
+            ctx.fillStyle = "#5c3d28"; ctx.fillRect(fx - 3, 152, 6, 20);
+            ctx.fillStyle = "rgba(255, 140, 0, 0.22)";
+            ctx.beginPath(); ctx.arc(fx, 146, 26 + flicker, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#ff9f1c";
+            ctx.beginPath(); ctx.arc(fx, 147, 7 + flicker * 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#fff3b0";
+            ctx.beginPath(); ctx.arc(fx, 148, 3.5, 0, Math.PI * 2); ctx.fill();
+          }
+
+          const floorGrad = ctx.createLinearGradient(0, wallBottom, 0, H);
+          floorGrad.addColorStop(0, "#4f3c30");
+          floorGrad.addColorStop(1, "#2e221b");
+          ctx.fillStyle = floorGrad;
+          ctx.fillRect(0, wallBottom, W, H - wallBottom);
+
+          ctx.strokeStyle = "rgba(20, 14, 10, 0.45)"; ctx.lineWidth = 2;
+          for (let y = wallBottom + 36; y < H; y += 52) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          }
+          for (let x = 0; x <= W; x += 120) {
+            ctx.beginPath(); ctx.moveTo(x, wallBottom); ctx.lineTo(x + (x - W / 2) * 0.32, H); ctx.stroke();
+          }
+        }
+      }
+    ];
+
+    // =========================================================================
+    // 3. 角色骨架動畫狀態計算與狀態疊加
+    // =========================================================================
+    function computeAnimPose(p) {
+      const t = p.animTime;
+      const pose = {
+        bobY: 0, bodyTilt: 0,
+        frontLegAngle: 0, backLegAngle: 0,
+        frontArmAngle: 0, backArmAngle: 0,
+        headTilt: 0,
+        squashX: 1, squashY: 1,
+        hurtFace: false,
+        attackProgress: 0, isKO: p.state === "ko"
+      };
+
+      if (p.state === "idle") {
+        pose.bobY = Math.sin(t * 4.5) * 2.2;
+        pose.headTilt = Math.sin(t * 2.25) * 0.04;
+        pose.frontArmAngle = -0.25 + Math.sin(t * 4.5) * 0.08;
+        pose.backArmAngle = 0.22 + Math.cos(t * 4.5) * 0.06;
+      } else if (p.state === "move") {
+        const stride = Math.sin(t * 16);
+        pose.bobY = Math.abs(stride) * -5;
+        pose.bodyTilt = 0.11;
+        pose.headTilt = 0.05;
+        pose.frontLegAngle = stride * 0.6;
+        pose.backLegAngle = -stride * 0.6;
+        pose.frontArmAngle = -stride * 0.5;
+        pose.backArmAngle = stride * 0.5;
+      } else if (p.state === "jump") {
+        pose.squashX = 0.94; pose.squashY = 1.06;
+        pose.frontLegAngle = -0.35; pose.backLegAngle = 0.45;
+        pose.frontArmAngle = -1.1; pose.backArmAngle = -0.7;
+      } else if (p.state === "dash") {
+        pose.squashX = 1.15; pose.squashY = 0.88;
+        pose.bodyTilt = 0.28;
+        pose.frontLegAngle = -0.5; pose.backLegAngle = 0.7;
+        pose.frontArmAngle = 0.8; pose.backArmAngle = 0.9;
+      } else if (p.state === "attack_startup") {
+        const dur = p.currentAttack?.startup || 0.2;
+        pose.attackProgress = 1 - Math.max(0, p.stateTimer / dur);
+        pose.bodyTilt = -0.18; pose.headTilt = -0.1;
+        pose.frontArmAngle = -1.8; pose.backArmAngle = 0.45;
+        pose.squashX = 0.93; pose.squashY = 1.06;
+      } else if (p.state === "attack_active") {
+        const dur = p.currentAttack?.active || 0.1;
+        pose.attackProgress = 1 - Math.max(0, p.stateTimer / dur);
+        pose.bodyTilt = 0.24; pose.headTilt = 0.08;
+        pose.frontArmAngle = 1.45; pose.backArmAngle = 0.65;
+        pose.squashX = 1.12; pose.squashY = 0.92;
+      } else if (p.state === "attack_recovery") {
+        pose.bodyTilt = 0.08; pose.frontArmAngle = 0.6; pose.backArmAngle = 0.3;
+      } else if (p.state === "hitstun") {
+        pose.bodyTilt = -0.28; pose.headTilt = -0.22;
+        pose.frontArmAngle = -0.9; pose.backArmAngle = -0.6;
+        pose.squashX = 0.9; pose.squashY = 1.08;
+        pose.hurtFace = true;
+      } else if (p.state === "ko") {
+        pose.hurtFace = true;
+      }
+      return pose;
+    }
+
+    function drawHeadStatusOverlay(ctx, headX, headY, headW, headH, p, anim) {
+      if (p.hitFlashTimer > 0) {
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 60, 60, 0.42)";
+        ctx.beginPath();
+        ctx.ellipse(headX + headW / 2, headY + headH / 2, headW / 2, headH / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      if (anim.hurtFace) {
+        const t = p.animTime * 10;
+        ctx.save();
+        ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 3; i++) {
+          const sx = headX + headW / 2 + Math.cos(t + i * 2.1) * 18;
+          const sy = headY - 6 + Math.sin(t + i * 2.1) * 5;
+          ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+        ctx.restore();
+      } else if (p.state === "attack_startup" && p.currentAttack?.name === "heavy") {
+        ctx.save();
+        ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 2.5;
+        const vx = headX + headW - 6; const vy = headY + 8;
+        ctx.beginPath();
+        ctx.moveTo(vx - 5, vy); ctx.lineTo(vx + 5, vy);
+        ctx.moveTo(vx, vy - 5); ctx.lineTo(vx, vy + 5);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // =========================================================================
+    // 4. 六位角色資料庫 (原版 18 招趣味特色招式與原版傷害，僅血量調整為原版 x1.2)
+    // =========================================================================
+    const CHARACTER_ROSTER = [
+      {
+        id: "crane_king",
+        name: "吊車大王",
+        title: "霸氣金主・撒幣重機械流",
+        photo: "人物角色/吊車大王.jpg",
+        faceCrop: { sx: 0.415, sy: 0.175, sw: 0.17, sh: 0.295 },
+        torsoCrop: { sx: 0.35, sy: 0.50, sw: 0.30, sh: 0.30 },
+        maxHp: 126, speedMult: 1.0, themeColor: "#e63946", // 原 105 x 1.2 = 126
+        lightDesc: "輕：撒幣金錶拳 ｜ 重：天降吊車巨鉤",
+        heavyDesc: "★必殺：萬噸天吊・皇室滿天金雨",
+        ultTitle: "萬噸天吊・皇室滿天金雨",
+        attacks: {
+          light: {
+            name: "light", style: "money_scatter",
+            startup: 0.05, active: 0.08, recovery: 0.11,
+            isProjectile: true, projType: "coins", projCount: 3, projSpeed: 580, projLife: 0.36,
+            width: 30, height: 28, offsetX: 8, offsetZ: 18, depthTolerance: 36,
+            damage: 5, hitstun: 0.16, knockbackX: 140, knockbackZ: 0, hitstop: 0.04,
+            slashColor: "#ffd166"
+          },
+          heavy: {
+            name: "heavy", style: "crane_slam",
+            startup: 0.20, active: 0.16, recovery: 0.22,
+            width: 116, height: 84, offsetX: 14, offsetZ: 0, depthTolerance: 52,
+            damage: 25, hitstun: 0.38, knockbackX: 640, knockbackZ: 320, hitstop: 0.10,
+            slashColor: "#ffbe0b"
+          },
+          ult: {
+            name: "ult", style: "ult_crane_gold_rain",
+            startup: 0.18, active: 0.28, recovery: 0.24,
+            superArmor: true,
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "coins", projCount: 5, projSpeed: 640, projLife: 0.65, width: 34, height: 30, offsetX: 10, offsetZ: 18, depthTolerance: 48, damage: 8, hitstun: 0.24, knockbackX: 260, knockbackZ: 120, hitstop: 0.05 },
+            width: 220, height: 110, offsetX: 8, offsetZ: 0, depthTolerance: 74,
+            damage: 42, hitstun: 0.50, knockbackX: 780, knockbackZ: 430, hitstop: 0.14,
+            slashColor: "#ffe066"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const skin = "#d99d73";
+          const drawLeg = (angle, dark) => {
+            ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(angle);
+            drawOutlinedRoundRect(ctx, -6, 0, 12, 20, 4, dark ? "#1b1d2b" : "#2b2d42");
+            drawOutlinedRoundRect(ctx, -6, 17, 17, 7, 3, "#111");
+            ctx.restore();
+          };
+          drawLeg(anim.backLegAngle, true);
+          ctx.save(); ctx.translate(-6, -46 + anim.bobY); ctx.rotate(anim.backArmAngle);
+          drawOutlinedRoundRect(ctx, -4, 0, 9, 18, 4, skin);
+          ctx.restore();
+          drawLeg(anim.frontLegAngle, false);
+
+          ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -19, -32, 38, 34, 7, false);
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -20, -76, 40, 46, 14, true);
+          drawHeadStatusOverlay(ctx, -20, -76, 40, 46, p, anim);
+          ctx.restore();
+
+          ctx.save(); ctx.translate(8, -24); ctx.rotate(-anim.frontArmAngle);
+          drawOutlinedRoundRect(ctx, -5, -2, 12, 10, 3, "#d90429");
+          drawOutlinedRoundRect(ctx, -4, 6, 10, 16, 4, skin);
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-4, 14, 10, 4); ctx.fillRect(3, 19, 4, 3);
+          ctx.restore();
+          ctx.restore();
+
+          if (p.state === "attack_active" && (p.currentAttack?.style === "crane_slam" || p.currentAttack?.style === "ult_crane_gold_rain")) {
+            const isUlt = p.currentAttack?.style === "ult_crane_gold_rain";
+            const hooks = isUlt ? [58, 128, 195] : [68];
+            const dropY = -6 + anim.attackProgress * 6;
+            ctx.save();
+            for (const hx of hooks) {
+              ctx.strokeStyle = isUlt ? "#ffd166" : "#ced4da"; ctx.lineWidth = 4;
+              ctx.beginPath(); ctx.moveTo(hx, -210); ctx.lineTo(hx, dropY - 36); ctx.stroke();
+              drawOutlinedRoundRect(ctx, hx - 20, dropY - 42, 40, 28, 5, isUlt ? "#ff0054" : "#ffb703");
+              ctx.fillStyle = "#ffd166"; ctx.fillRect(hx - 14, dropY - 37, 7, 18); ctx.fillRect(hx - 1, dropY - 37, 7, 18);
+              ctx.strokeStyle = "#f8f9fa"; ctx.lineWidth = 6;
+              ctx.beginPath(); ctx.arc(hx, dropY - 5, 13, -0.3 * Math.PI, 1.15 * Math.PI); ctx.stroke();
+              const r = 24 + anim.attackProgress * (isUlt ? 76 : 58);
+              ctx.strokeStyle = isUlt ? "#ffbe0b" : "#ffd166"; ctx.lineWidth = 4;
+              ctx.beginPath(); ctx.ellipse(hx, 0, r, 15, 0, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.restore();
+          }
+        }
+      },
+      {
+        id: "monster_boo",
+        name: "噁心",
+        title: "怪獸布偶・狂暴連咬流",
+        photo: "人物角色/噁心.jpg",
+        faceCrop: { sx: 0.35, sy: 0.085, sw: 0.30, sh: 0.345 },
+        torsoCrop: { sx: 0.36, sy: 0.42, sw: 0.26, sh: 0.42 },
+        maxHp: 114, speedMult: 1.14, themeColor: "#9d4edd", // 原 95 x 1.2 = 114
+        lightDesc: "輕：360度觸手旋鞭 ｜ 重：怪獸三段飛撲連咬",
+        heavyDesc: "★必殺：深淵狂暴・萬魔六連噬",
+        ultTitle: "深淵狂暴・萬魔六連噬",
+        attacks: {
+          light: {
+            name: "light", style: "spin_whip",
+            startup: 0.04, active: 0.12, recovery: 0.10,
+            centeredHitbox: true,
+            width: 128, height: 44, offsetX: 0, offsetZ: 14, depthTolerance: 40,
+            damage: 8, hitstun: 0.20, knockbackX: 220, knockbackZ: 0, hitstop: 0.05,
+            slashColor: "#e0aaff"
+          },
+          heavy: {
+            name: "heavy", style: "frenzy_bite",
+            startup: 0.13, active: 0.32, recovery: 0.19,
+            width: 78, height: 54, offsetX: 0, offsetZ: 6, depthTolerance: 44,
+            lungeX: 470, multiHitInterval: 0.09,
+            damage: 8, hitstun: 0.26, knockbackX: 340, knockbackZ: 130, hitstop: 0.045,
+            slashColor: "#c77dff"
+          },
+          ult: {
+            name: "ult", style: "ult_abyss_frenzy",
+            startup: 0.12, active: 0.46, recovery: 0.20,
+            superArmor: true,
+            width: 115, height: 74, offsetX: 0, offsetZ: 2, depthTolerance: 62,
+            lungeX: 590, multiHitInterval: 0.075,
+            damage: 9, hitstun: 0.34, knockbackX: 420, knockbackZ: 190, hitstop: 0.05,
+            slashColor: "#ff0054"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const sway = Math.sin(p.animTime * 10) * 3.5;
+          const drawFoot = (angle, offset) => {
+            ctx.save(); ctx.translate(offset, -14 + anim.bobY); ctx.rotate(angle);
+            drawOutlinedRoundRect(ctx, -9, 0, 19, 14, 7, "#ced4da");
+            ctx.restore();
+          };
+          drawFoot(anim.backLegAngle, -7);
+          drawFoot(anim.frontLegAngle, 5);
+
+          ctx.save(); ctx.translate(0, -14 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          for (let i = 0; i < 3; i++) {
+            drawOutlinedRoundRect(ctx, -28 + i * 2, -44 + i * 8 + sway * (i % 2 ? 1 : -1), 16, 7, 3, "#adb5bd", 1.8);
+          }
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -21, -40, 42, 40, 12, false);
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -25, -80, 50, 44, 14, false);
+          drawHeadStatusOverlay(ctx, -25, -80, 50, 44, p, anim);
+          ctx.restore();
+
+          ctx.save(); ctx.translate(8, -28); ctx.rotate(-anim.frontArmAngle);
+          drawOutlinedRoundRect(ctx, -5, 0, 12, 22, 6, "#dee2e6");
+          ctx.restore();
+          ctx.restore();
+
+          if (p.state === "attack_active" && p.currentAttack?.style === "spin_whip") {
+            ctx.save();
+            ctx.strokeStyle = "#e0aaff"; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.ellipse(0, -34, 62, 16, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+          }
+          if (p.state === "attack_active" && (p.currentAttack?.style === "frenzy_bite" || p.currentAttack?.style === "ult_abyss_frenzy")) {
+            const isUlt = p.currentAttack?.style === "ult_abyss_frenzy";
+            const jawClose = Math.abs(Math.sin(p.animTime * 42)) * (isUlt ? 20 : 14);
+            ctx.save();
+            if (isUlt) {
+              ctx.strokeStyle = "rgba(255, 0, 84, 0.75)"; ctx.lineWidth = 5;
+              ctx.beginPath(); ctx.ellipse(45, -38, 70, 32, 0, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.fillStyle = isUlt ? "#ffccd5" : "#ffffff";
+            ctx.strokeStyle = isUlt ? "#d90429" : "#5a189a"; ctx.lineWidth = 2.2;
+            const teethCount = isUlt ? 6 : 4;
+            for (let i = 0; i < teethCount; i++) {
+              const tx = 20 + i * 13;
+              ctx.beginPath(); ctx.moveTo(tx, -64 + jawClose); ctx.lineTo(tx + 6, -42 + jawClose); ctx.lineTo(tx + 12, -64 + jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(tx, -10 - jawClose); ctx.lineTo(tx + 6, -32 - jawClose); ctx.lineTo(tx + 12, -10 - jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
+            }
+            ctx.restore();
+          }
+        }
+      },
+      {
+        id: "hell_judge",
+        name: "地獄黑面潔",
+        title: "閻羅審判長・遠程鎖定流",
+        photo: "人物角色/地獄黑面潔.jpg",
+        faceCrop: { sx: 0.365, sy: 0.27, sw: 0.23, sh: 0.18 },
+        torsoCrop: { sx: 0.38, sy: 0.52, sw: 0.23, sh: 0.22 },
+        maxHp: 114, speedMult: 0.98, themeColor: "#b5179e", // 原 95 x 1.2 = 114
+        lightDesc: "輕：判官筆墨氣波 ｜ 重：生死簿鎖定天罰",
+        heavyDesc: "★必殺：無間煉獄・閻羅萬鬼陣",
+        ultTitle: "無間煉獄・閻羅萬鬼陣",
+        attacks: {
+          light: {
+            name: "light", style: "ink_wave",
+            startup: 0.06, active: 0.08, recovery: 0.14,
+            isProjectile: true, projType: "ink_slash", projSpeed: 640, projLife: 0.58,
+            width: 36, height: 44, offsetX: 8, offsetZ: 12, depthTolerance: 36,
+            damage: 8, hitstun: 0.20, knockbackX: 180, knockbackZ: 0, hitstop: 0.05,
+            slashColor: "#ff4d6d"
+          },
+          heavy: {
+            name: "heavy", style: "target_hell_pillar",
+            startup: 0.25, active: 0.18, recovery: 0.24,
+            trackOpponent: true,
+            width: 86, height: 110, offsetX: 0, offsetZ: 0, depthTolerance: 48,
+            damage: 23, hitstun: 0.36, knockbackX: 480, knockbackZ: 360, hitstop: 0.095,
+            slashColor: "#e63946"
+          },
+          ult: {
+            name: "ult", style: "ult_hell_judgment",
+            startup: 0.20, active: 0.28, recovery: 0.24,
+            superArmor: true, trackOpponent: true,
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "ink_slash", projCount: 3, projSpeed: 680, projLife: 0.70, width: 42, height: 50, offsetX: 10, offsetZ: 12, depthTolerance: 48, damage: 10, hitstun: 0.26, knockbackX: 280, knockbackZ: 140, hitstop: 0.055 },
+            width: 190, height: 140, offsetX: 0, offsetZ: 0, depthTolerance: 78,
+            damage: 44, hitstun: 0.48, knockbackX: 680, knockbackZ: 450, hitstop: 0.14,
+            slashColor: "#ff0054"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const tasselSway = Math.sin(p.animTime * 6) * 2.5;
+          drawOutlinedRoundRect(ctx, -12 + anim.backLegAngle * 10, -8, 13, 8, 2, "#141118");
+          drawOutlinedRoundRect(ctx, 2 + anim.frontLegAngle * 10, -8, 13, 8, 2, "#141118");
+
+          ctx.save(); ctx.translate(0, -8 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          drawOutlinedRoundRect(ctx, -21, -48, 42, 48, 6, "#18141c");
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -15, -45, 30, 42, 4, false);
+
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -18, -82, 36, 38, 12, true);
+          drawOutlinedRoundRect(ctx, -15, -90, 30, 10, 2, "#221b26");
+          drawOutlinedRoundRect(ctx, -22, -94, 44, 5, 2, "#ffb703");
+          ctx.fillStyle = "#e63946";
+          ctx.fillRect(-19 + tasselSway, -89, 3, 20);
+          ctx.fillRect(16 + tasselSway, -89, 3, 20);
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-2, -88, 5, 5);
+          drawHeadStatusOverlay(ctx, -18, -82, 36, 38, p, anim);
+          ctx.restore();
+
+          ctx.save(); ctx.translate(8, -38); ctx.rotate(-anim.frontArmAngle);
+          drawOutlinedRoundRect(ctx, -6, -2, 14, 16, 4, "#18141c");
+          ctx.fillStyle = "#ffb703"; ctx.fillRect(4, -24, 4, 26);
+          ctx.fillStyle = "#e63946"; ctx.beginPath(); ctx.moveTo(2, -24); ctx.lineTo(6, -36); ctx.lineTo(10, -24); ctx.fill();
+          ctx.restore();
+          ctx.restore();
+        }
+      },
+      {
+        id: "life_warrior",
+        name: "生話戰士",
+        title: "柴米油鹽・迴力鏢＆大風車流",
+        photo: "人物角色/生話人.jpg",
+        faceCrop: { sx: 0.34, sy: 0.175, sw: 0.175, sh: 0.14 },
+        torsoCrop: { sx: 0.31, sy: 0.31, sw: 0.30, sh: 0.22 },
+        maxHp: 120, speedMult: 1.04, themeColor: "#588157", // 原 100 x 1.2 = 120
+        lightDesc: "輕：保溫杯迴力鏢 ｜ 重：紅毛掃把大風車",
+        heavyDesc: "★必殺：家政奧義・終極龍捲大掃除",
+        ultTitle: "家政奧義・終極龍捲大掃除",
+        attacks: {
+          light: {
+            name: "light", style: "thermos_boomerang",
+            startup: 0.06, active: 0.08, recovery: 0.13,
+            isProjectile: true, projType: "boomerang", projSpeed: 650, projLife: 0.72,
+            width: 30, height: 30, offsetX: 8, offsetZ: 16, depthTolerance: 36,
+            damage: 7, hitstun: 0.18, knockbackX: 160, knockbackZ: 0, hitstop: 0.045,
+            slashColor: "#dad7cd"
+          },
+          heavy: {
+            name: "heavy", style: "broom_cyclone",
+            startup: 0.16, active: 0.34, recovery: 0.22,
+            centeredHitbox: true, lungeX: 340, multiHitInterval: 0.10,
+            width: 158, height: 56, offsetX: 0, offsetZ: 6, depthTolerance: 48,
+            damage: 8, hitstun: 0.28, knockbackX: 480, knockbackZ: 220, hitstop: 0.055,
+            slashColor: "#e76f51"
+          },
+          ult: {
+            name: "ult", style: "ult_broom_typhoon",
+            startup: 0.14, active: 0.44, recovery: 0.22,
+            superArmor: true, centeredHitbox: true, lungeX: 440, multiHitInterval: 0.085,
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "boomerang", projCount: 3, projSpeed: 700, projLife: 0.85, width: 32, height: 32, offsetX: 8, offsetZ: 16, depthTolerance: 46, damage: 9, hitstun: 0.22, knockbackX: 220, knockbackZ: 90, hitstop: 0.045 },
+            width: 220, height: 84, offsetX: 0, offsetZ: 0, depthTolerance: 68,
+            damage: 10, hitstun: 0.34, knockbackX: 560, knockbackZ: 310, hitstop: 0.06,
+            slashColor: "#ffbe0b"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const skin = "#d4a373";
+          const drawLeg = (angle, dark) => {
+            ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(angle);
+            drawOutlinedRoundRect(ctx, -6, 0, 12, 20, 3, dark ? "#25292e" : "#343a40");
+            drawOutlinedRoundRect(ctx, -6, 17, 16, 7, 2, "#1f1c18");
+            ctx.restore();
+          };
+          drawLeg(anim.backLegAngle, true);
+
+          ctx.save(); ctx.translate(-10, -40 + anim.bobY); ctx.rotate(anim.backArmAngle);
+          drawOutlinedRoundRect(ctx, -4, 0, 8, 14, 3, skin);
+          drawOutlinedRoundRect(ctx, -9, 12, 18, 17, 4, "#fff", 1.8);
+          ctx.fillStyle = "#e63946"; ctx.fillRect(-6, 15, 3, 12); ctx.fillRect(2, 15, 3, 12);
+          ctx.fillStyle = "#52b788"; ctx.fillRect(3, 6, 4, 9);
+          ctx.restore();
+
+          drawLeg(anim.frontLegAngle, false);
+
+          ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          drawOutlinedRoundRect(ctx, -27, -33, 13, 29, 4, "#6c584c");
+          ctx.fillStyle = "#adb5bd"; ctx.beginPath(); ctx.arc(-27, -12, 6, 0, Math.PI * 2); ctx.fill();
+
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -18, -32, 36, 34, 6, false);
+          drawOutlinedRoundRect(ctx, 9, -13, 8, 16, 2, "#ced4da", 1.8);
+
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -19, -76, 38, 44, 14, true);
+          drawHeadStatusOverlay(ctx, -19, -76, 38, 44, p, anim);
+          ctx.restore();
+
+          const isSpinning = p.state === "attack_active" && (p.currentAttack?.style === "broom_cyclone" || p.currentAttack?.style === "ult_broom_typhoon");
+          ctx.save();
+          ctx.translate(6, -24);
+          const spinAngle = isSpinning ? p.animTime * 34 : -anim.frontArmAngle;
+          ctx.rotate(spinAngle);
+          drawOutlinedRoundRect(ctx, -4, 0, 9, 14, 3, skin);
+          drawOutlinedRoundRect(ctx, -30, -2, 74, 5, 2, "#a98467", 1.8);
+          ctx.fillStyle = "#c1121f";
+          ctx.beginPath(); ctx.moveTo(38, -10); ctx.lineTo(58, -16); ctx.lineTo(58, 16); ctx.lineTo(38, 10); ctx.closePath();
+          ctx.fill(); ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.8; ctx.stroke();
+          ctx.restore();
+          ctx.restore();
+
+          if (p.state === "attack_active" && p.currentAttack?.style === "ult_broom_typhoon") {
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 190, 11, 0.85)"; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.ellipse(0, -28, 102, 26, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "rgba(82, 183, 136, 0.85)"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.ellipse(0, -54, 84, 20, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+          }
+        }
+      },
+      {
+        id: "slaking_king",
+        name: "請假王",
+        title: "一臉懶惰・霸體震地流",
+        photo: "人物角色/請假葛.jpg",
+        faceCrop: { sx: 0.515, sy: 0.15, sw: 0.255, sh: 0.22 },
+        maxHp: 144, speedMult: 0.90, themeColor: "#a47148", // 原 120 x 1.2 = 144
+        lightDesc: "輕：肚皮彈跳頂撞 ｜ 重：破滅一擊大地震",
+        heavyDesc: "★必殺：無敵病假單・泰山崩裂震",
+        ultTitle: "無敵病假單・泰山崩裂震",
+        attacks: {
+          light: {
+            name: "light", style: "belly_bump",
+            startup: 0.06, active: 0.14, recovery: 0.12,
+            lungeX: 300, superArmor: true,
+            width: 68, height: 48, offsetX: 0, offsetZ: 8, depthTolerance: 40,
+            damage: 11, hitstun: 0.24, knockbackX: 380, knockbackZ: 140, hitstop: 0.06,
+            slashColor: "#ffe5ec"
+          },
+          heavy: {
+            name: "heavy", style: "giga_earthquake",
+            startup: 0.25, active: 0.18, recovery: 0.25,
+            centeredHitbox: true, superArmor: true,
+            width: 215, height: 70, offsetX: 0, offsetZ: 0, depthTolerance: 66,
+            damage: 30, hitstun: 0.42, knockbackX: 720, knockbackZ: 360, hitstop: 0.115,
+            slashColor: "#ff9f1c"
+          },
+          ult: {
+            name: "ult", style: "ult_slaking_cataclysm",
+            startup: 0.22, active: 0.26, recovery: 0.26,
+            centeredHitbox: true, superArmor: true,
+            width: 330, height: 95, offsetX: 0, offsetZ: 0, depthTolerance: 95,
+            damage: 48, hitstun: 0.52, knockbackX: 840, knockbackZ: 460, hitstop: 0.15,
+            slashColor: "#ff0054"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const drawLeg = (angle, dark) => {
+            ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(angle);
+            drawOutlinedRoundRect(ctx, -9, 0, 18, 18, 6, dark ? "#5c3d28" : "#6f4e37");
+            ctx.restore();
+          };
+          drawLeg(anim.backLegAngle, true);
+          drawLeg(anim.frontLegAngle, false);
+
+          ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          const furGrad = ctx.createLinearGradient(-26, -38, 26, 0);
+          furGrad.addColorStop(0, "#9c6b3e"); furGrad.addColorStop(1, "#6b4523");
+          drawOutlinedRoundRect(ctx, -26, -38, 52, 40, 14, furGrad);
+          drawOutlinedRoundRect(ctx, -14, -28, 32, 26, 11, "#e6ccb2", 1.8);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.moveTo(-24, -35); ctx.lineTo(-15, -43); ctx.lineTo(-6, -34);
+          ctx.lineTo(3, -43); ctx.lineTo(12, -34); ctx.lineTo(20, -43); ctx.lineTo(25, -35);
+          ctx.lineTo(18, -26); ctx.lineTo(-18, -26); ctx.closePath();
+          ctx.fill(); ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2; ctx.stroke();
+
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -21, -80, 42, 44, 14, true);
+          drawHeadStatusOverlay(ctx, -21, -80, 42, 44, p, anim);
+          ctx.restore();
+
+          ctx.save(); ctx.translate(10, -28); ctx.rotate(-anim.frontArmAngle);
+          drawOutlinedRoundRect(ctx, -7, 0, 16, 25, 7, "#8b5e34");
+          ctx.restore();
+          ctx.restore();
+
+          if (p.state === "attack_active" && (p.currentAttack?.style === "giga_earthquake" || p.currentAttack?.style === "ult_slaking_cataclysm")) {
+            const isUlt = p.currentAttack?.style === "ult_slaking_cataclysm";
+            const r = 36 + anim.attackProgress * (isUlt ? 155 : 105);
+            ctx.save();
+            ctx.strokeStyle = isUlt ? "#ff0054" : "#ffbe0b"; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.ellipse(0, 0, r, isUlt ? 32 : 22, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.ellipse(0, 0, r * 0.65, 18, 0, 0, Math.PI * 2); ctx.stroke();
+            if (isUlt) {
+              ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 3;
+              ctx.font = "900 24px Microsoft JhengHei, sans-serif";
+              ctx.strokeText("准假!!", -28, -96 - anim.attackProgress * 18);
+              ctx.fillText("准假!!", -28, -96 - anim.attackProgress * 18);
+            }
+            ctx.restore();
+          }
+        }
+      },
+      {
+        id: "wind_lion",
+        name: "風濕爺",
+        title: "鎮風石獅・獅吼＆彈跳石球流",
+        photo: "人物角色/風濕爺.jpg",
+        faceCrop: { sx: 0.28, sy: 0.07, sw: 0.42, sh: 0.33 },
+        torsoCrop: { sx: 0.29, sy: 0.39, sw: 0.40, sh: 0.18 },
+        maxHp: 132, speedMult: 0.95, themeColor: "#bc6c25", // 原 110 x 1.2 = 132
+        lightDesc: "輕：鎮風獅吼功 ｜ 重：彈跳石獅繡球",
+        heavyDesc: "★必殺：金門狂風獅吼・天降星隕陣",
+        ultTitle: "金門狂風獅吼・天降星隕陣",
+        attacks: {
+          light: {
+            name: "light", style: "lion_roar",
+            startup: 0.06, active: 0.11, recovery: 0.12,
+            width: 86, height: 52, offsetX: 4, offsetZ: 8, depthTolerance: 40,
+            damage: 8, hitstun: 0.24, knockbackX: 460, knockbackZ: 120, hitstop: 0.06,
+            slashColor: "#ffd166"
+          },
+          heavy: {
+            name: "heavy", style: "bouncing_stone_ball",
+            startup: 0.18, active: 0.08, recovery: 0.22,
+            isProjectile: true, projType: "bouncing_orb", projSpeed: 470, projLife: 1.25,
+            width: 44, height: 44, offsetX: 8, offsetZ: 0, depthTolerance: 42,
+            damage: 21, hitstun: 0.35, knockbackX: 580, knockbackZ: 280, hitstop: 0.09,
+            slashColor: "#e9c46a"
+          },
+          ult: {
+            name: "ult", style: "ult_wind_lion_storm",
+            startup: 0.16, active: 0.26, recovery: 0.22,
+            superArmor: true,
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "bouncing_orb", projCount: 3, projSpeed: 520, projLife: 1.35, width: 46, height: 46, offsetX: 10, offsetZ: 0, depthTolerance: 50, damage: 15, hitstun: 0.34, knockbackX: 560, knockbackZ: 280, hitstop: 0.08 },
+            width: 195, height: 86, offsetX: 4, offsetZ: 0, depthTolerance: 68,
+            damage: 38, hitstun: 0.46, knockbackX: 740, knockbackZ: 380, hitstop: 0.14,
+            slashColor: "#ffd166"
+          }
+        },
+        drawLocalModel(ctx, p, anim) {
+          const drawPaw = (angle, dark) => {
+            ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(angle);
+            drawOutlinedRoundRect(ctx, -8, 0, 16, 18, 5, dark ? "#6b6157" : "#7d7267");
+            ctx.restore();
+          };
+          drawPaw(anim.backLegAngle, true);
+          drawPaw(anim.frontLegAngle, false);
+
+          ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          drawOutlinedRoundRect(ctx, -21, -36, 42, 36, 8, "#8d8174");
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -18, -35, 36, 26, 6, false);
+
+          ctx.save(); ctx.rotate(anim.headTilt);
+          drawCroppedPhoto(ctx, this.photo, this.faceCrop, -23, -80, 46, 46, 14, false);
+          drawHeadStatusOverlay(ctx, -23, -80, 46, 46, p, anim);
+          ctx.restore();
+
+          ctx.save(); ctx.translate(8, -28); ctx.rotate(-anim.frontArmAngle);
+          drawOutlinedRoundRect(ctx, -5, 0, 12, 20, 5, "#a59788");
+          ctx.restore();
+          ctx.restore();
+
+          if (p.state === "attack_active" && (p.currentAttack?.style === "lion_roar" || p.currentAttack?.style === "ult_wind_lion_storm")) {
+            const isUlt = p.currentAttack?.style === "ult_wind_lion_storm";
+            const r = 24 + anim.attackProgress * (isUlt ? 115 : 52);
+            ctx.save();
+            ctx.strokeStyle = isUlt ? "#ff0054" : "#ffd166"; ctx.lineWidth = isUlt ? 6 : 4;
+            ctx.beginPath(); ctx.arc(38, -42, r, -0.85, 0.85); ctx.stroke();
+            ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(48, -42, r * 0.72, -0.75, 0.75); ctx.stroke();
+            ctx.fillStyle = "#ffd166"; ctx.font = "900 24px Microsoft JhengHei, sans-serif";
+            ctx.fillText(isUlt ? "鎮煞狂風!!" : "風!", 42 + anim.attackProgress * 24, -36);
+            ctx.restore();
+          }
+        }
+      }
+    ];
+
+    // =========================================================================
+    // 5. 輸入管理 (整合鍵盤 + 觸控虛擬搖桿 + 虛擬五鍵) & 分級 COM AI
+    // =========================================================================
+    class InputManager {
+      constructor() {
+        this.held = new Set();
+        this.pressed = new Set();
+        const gameKeys = new Set([
+          "KeyW", "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ",
+          "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+          "Space", "Enter", "ShiftRight", "Comma", "Period", "Slash", "Semicolon", "KeyM",
+          "KeyC", "KeyR", "KeyB", "Tab"
+        ]);
+        window.addEventListener("keydown", (e) => {
+          const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+          if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+          if (!e.ctrlKey && !e.altKey && !e.metaKey && gameKeys.has(e.code)) {
+            e.preventDefault();
+          }
+          if (!this.held.has(e.code)) this.pressed.add(e.code);
+          this.held.add(e.code);
+        });
+        window.addEventListener("keyup", (e) => { this.held.delete(e.code); });
+        window.addEventListener("blur", () => { this.held.clear(); this.pressed.clear(); });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) { this.held.clear(); this.pressed.clear(); }
+        });
+
+        this.setupVirtualControls();
+      }
+
+      setVirtualCode(code, active) {
+        if (active) {
+          if (!this.held.has(code)) this.pressed.add(code);
+          this.held.add(code);
+        } else {
+          this.held.delete(code);
+        }
+      }
+
+      setupVirtualControls() {
+        // 1. 綁定左方 8 向滑動虛擬搖桿 (對應 1P WASD)
+        const dpadZone = document.getElementById("dpadZone");
+        const dpadStick = document.getElementById("dpadStick");
+        if (dpadZone && dpadStick) {
+          let activePointerId = null;
+
+          const clearDirs = () => {
+            this.setVirtualCode("KeyW", false);
+            this.setVirtualCode("KeyS", false);
+            this.setVirtualCode("KeyA", false);
+            this.setVirtualCode("KeyD", false);
+            dpadStick.style.transform = "translate(0px, 0px)";
+          };
+
+          const updateFromPoint = (clientX, clientY) => {
+            const rect = dpadZone.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dx = clientX - cx;
+            const dy = clientY - cy;
+            const dist = Math.hypot(dx, dy);
+            const maxRadius = rect.width * 0.34;
+            const deadzone = 12;
+
+            if (dist < deadzone) {
+              clearDirs();
+              return;
+            }
+
+            const clampedDist = Math.min(dist, maxRadius);
+            const angle = Math.atan2(dy, dx);
+            const sx = Math.cos(angle) * clampedDist;
+            const sy = Math.sin(angle) * clampedDist;
+            dpadStick.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
+
+            this.setVirtualCode("KeyD", dx > deadzone);
+            this.setVirtualCode("KeyA", dx < -deadzone);
+            this.setVirtualCode("KeyS", dy > deadzone);
+            this.setVirtualCode("KeyW", dy < -deadzone);
+          };
+
+          dpadZone.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            activePointerId = e.pointerId;
+            try { dpadZone.setPointerCapture(e.pointerId); } catch (_) {}
+            updateFromPoint(e.clientX, e.clientY);
+          });
+
+          dpadZone.addEventListener("pointermove", (e) => {
+            if (e.pointerId !== activePointerId) return;
+            updateFromPoint(e.clientX, e.clientY);
+          });
+
+          const endStick = (e) => {
+            if (e.pointerId !== activePointerId) return;
+            activePointerId = null;
+            clearDirs();
+          };
+          dpadZone.addEventListener("pointerup", endStick);
+          dpadZone.addEventListener("pointercancel", endStick);
+        }
+
+        // 2. 綁定右側五顆街機虛擬按鍵 (含必殺技 ULT)
+        const bindBtn = (id, code) => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          btn.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            btn.classList.add("pressed");
+            this.setVirtualCode(code, true);
+          });
+          const release = () => {
+            btn.classList.remove("pressed");
+            this.setVirtualCode(code, false);
+          };
+          btn.addEventListener("pointerup", release);
+          btn.addEventListener("pointercancel", release);
+          btn.addEventListener("pointerleave", release);
+        };
+
+        bindBtn("vBtnUlt", "KeyJ");
+        bindBtn("vBtnLight", "KeyF");
+        bindBtn("vBtnHeavy", "KeyG");
+        bindBtn("vBtnJump", "Space");
+        bindBtn("vBtnDash", "KeyH");
+      }
+
+      isHeld(codes) { return Array.isArray(codes) ? codes.some((c) => this.held.has(c)) : this.held.has(codes); }
+      wasPressed(codes) { return Array.isArray(codes) ? codes.some((c) => this.pressed.has(c)) : this.pressed.has(codes); }
+      endFrame() { this.pressed.clear(); }
+    }
+
+    /**
+     * 支援「簡單 / 普通 / 困難」三段難易度與超必殺技施放的 COM AI 控制器
+     */
+    class COMController {
+      constructor() {
+        this.thinkTimer = 0;
+        this.attackCooldown = 0;
+        this.held = new Set();
+        this.pressed = new Set();
+        this.difficulty = COM_DIFFICULTIES.normal;
+      }
+
+      setDifficulty(diffKey) {
+        this.difficulty = COM_DIFFICULTIES[diffKey] || COM_DIFFICULTIES.normal;
+      }
+
+      holdKey(ctrl) {
+        const key = Array.isArray(ctrl) ? ctrl[0] : ctrl;
+        if (key) this.held.add(key);
+      }
+
+      pressKey(ctrl) {
+        const key = Array.isArray(ctrl) ? ctrl[0] : ctrl;
+        if (key) this.pressed.add(key);
+      }
+
+      update(dt, comPlayer, targetPlayer) {
+        this.pressed.clear();
+        if (this.attackCooldown > 0) this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+        this.thinkTimer -= dt;
+        if (this.thinkTimer > 0) return;
+
+        const d = this.difficulty;
+        this.thinkTimer = d.reactionMin + Math.random() * d.reactionVar;
+        this.held.clear();
+        if (comPlayer.state === "ko" || targetPlayer.state === "ko") return;
+
+        const dx = (targetPlayer.x + targetPlayer.width / 2) - (comPlayer.x + comPlayer.width / 2);
+        const dy = targetPlayer.y - comPlayer.y;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const heavy = comPlayer.charDef.attacks.heavy;
+        const light = comPlayer.charDef.attacks.light;
+        const ult = comPlayer.charDef.attacks.ult;
+        const idealRange = (heavy.isProjectile || heavy.trackOpponent) ? 230 : (heavy.offsetX || 0) + heavy.width * 0.72;
+
+        // 1. 深度對位
+        if (absDy > d.depthAccuracy) {
+          this.holdKey(dy > 0 ? comPlayer.controls.down : comPlayer.controls.up);
+        }
+
+        // 2. 水平追擊與衝刺接近
+        if (absDx > idealRange + 15) {
+          this.holdKey(dx > 0 ? comPlayer.controls.right : comPlayer.controls.left);
+          if (absDx > 220 && comPlayer.dashCooldownTimer <= 0 && Math.random() < d.dashChaseChance) {
+            this.pressKey(comPlayer.controls.dash);
+          }
+        } else if (absDx < 36 && Math.random() < 0.35) {
+          this.holdKey(dx > 0 ? comPlayer.controls.left : comPlayer.controls.right);
+        }
+
+        // 3. 判斷出招時機 (包含集滿氣施放必殺技，並受 attackCooldown 限制避免連發秒殺)
+        const facingMatch = (dx >= 0 && comPlayer.facing === 1) || (dx < 0 && comPlayer.facing === -1);
+        if (!facingMatch && absDx > 10) {
+          this.holdKey(dx > 0 ? comPlayer.controls.right : comPlayer.controls.left);
+        } else if (this.attackCooldown <= 0 && targetPlayer.invulnTimer <= 0.05) {
+          // 滿氣必殺技判定
+          if (
+            comPlayer.energy >= CONFIG.maxEnergy &&
+            ult &&
+            absDy <= (ult.depthTolerance || 65) &&
+            (ult.trackOpponent || absDx <= (ult.width || 200) + 60) &&
+            Math.random() < d.ultUseChance
+          ) {
+            this.pressKey(comPlayer.controls.ult);
+            this.attackCooldown = (d.attackInterval || 0.65) * 1.4;
+            return;
+          }
+
+          if (absDy <= light.depthTolerance + 8 && Math.random() < d.aggression) {
+            if (
+              ((heavy.isProjectile || heavy.trackOpponent) && absDx > 90 && absDx < 450 && Math.random() < 0.42) ||
+              (!heavy.isProjectile && !heavy.trackOpponent && absDx <= (heavy.offsetX || 0) + heavy.width + 20 && Math.random() < 0.40)
+            ) {
+              this.pressKey(comPlayer.controls.heavy);
+              this.attackCooldown = (d.attackInterval || 0.65) * (1.1 + Math.random() * 0.4);
+            } else if (
+              (light.isProjectile && absDx < 290) ||
+              (!light.isProjectile && absDx <= light.width + 28)
+            ) {
+              this.pressKey(comPlayer.controls.light);
+              this.attackCooldown = (d.attackInterval || 0.65) * (0.75 + Math.random() * 0.35);
+            }
+          }
+        }
+
+        // 4. 防守閃避反應
+        if ((targetPlayer.state === "attack_startup" || targetPlayer.state === "attack_active") && absDx < 135 && absDy < 48) {
+          if (Math.random() < d.dodgeChance) {
+            if (comPlayer.dashCooldownTimer <= 0) this.pressKey(comPlayer.controls.dash);
+            else if (comPlayer.z === 0) this.pressKey(comPlayer.controls.jump);
+          }
+        }
+      }
+
+      isHeld(codes) { return Array.isArray(codes) ? codes.some((c) => this.held.has(c)) : this.held.has(codes); }
+      wasPressed(codes) { return Array.isArray(codes) ? codes.some((c) => this.pressed.has(c)) : this.pressed.has(codes); }
+    }
+
+    // =========================================================================
+    // 6. 特效與多型態飛行道具
+    // =========================================================================
+    class Particle {
+      constructor(x, y, vx, vy, color, size, life) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.color = color; this.size = size; this.life = life; this.maxLife = life;
+      }
+      update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.vx *= 0.92; this.vy *= 0.92; this.life -= dt; }
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        ctx.restore();
+      }
+    }
+
+    class HitStarburst {
+      constructor(x, y, isHeavy) {
+        this.x = x; this.y = y; this.isHeavy = isHeavy;
+        this.life = isHeavy ? 0.16 : 0.10; this.maxLife = this.life;
+        this.maxR = isHeavy ? 46 : 26;
+      }
+      update(dt) { this.life -= dt; }
+      draw(ctx) {
+        const progress = 1 - Math.max(0, this.life / this.maxLife);
+        const r = this.maxR * (0.4 + progress * 0.6);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.translate(this.x, this.y);
+        ctx.fillStyle = this.isHeavy ? "#ffd166" : "#ffffff";
+        ctx.strokeStyle = this.isHeavy ? "#ff5400" : "#ffd166";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const spikes = 8;
+        for (let i = 0; i < spikes * 2; i++) {
+          const rad = (i % 2 === 0) ? r : r * 0.35;
+          const a = (i * Math.PI) / spikes;
+          if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+          else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class FloatingText {
+      constructor(x, y, text, color, scale = 1) {
+        this.x = x; this.y = y; this.vy = -85;
+        this.text = text; this.color = color; this.scale = scale;
+        this.life = 0.55; this.maxLife = 0.55;
+      }
+      update(dt) { this.y += this.vy * dt; this.vy *= 0.94; this.life -= dt; }
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.font = `900 ${Math.round(18 * this.scale)}px Impact, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.strokeStyle = "#16111c"; ctx.lineWidth = 4;
+        ctx.strokeText(this.text, this.x, this.y);
+        ctx.fillStyle = this.color;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+      }
+    }
+
+    class Afterimage {
+      constructor(x, drawY, width, height, color) {
+        this.x = x; this.drawY = drawY; this.width = width; this.height = height;
+        this.color = color; this.life = 0.16; this.maxLife = 0.16;
+      }
+      update(dt) { this.life -= dt; }
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, (this.life / this.maxLife) * 0.32);
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.roundRect(this.x, this.drawY, this.width, this.height, 8); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class Projectile {
+      constructor({ owner, x, groundY, z, facing, attackData, vz = 0, speedMult = 1 }) {
+        this.owner = owner; this.x = x; this.groundY = groundY; this.z = z;
+        this.facing = facing; this.attackData = attackData;
+        this.projType = attackData.projType || "orb";
+        this.width = attackData.width; this.height = attackData.height;
+        this.vx = facing * attackData.projSpeed * speedMult;
+        this.vz = vz;
+        this.life = attackData.projLife;
+        this.maxLife = attackData.projLife;
+        this.active = true; this.angle = 0;
+        this.hasReturned = false;
+        this.hitTargets = new Set();
+      }
+      getHitbox() {
+        return { x: this.x, y: this.groundY - this.z - this.attackData.offsetZ - this.height, width: this.width, height: this.height, groundY: this.groundY, depthTolerance: this.attackData.depthTolerance };
+      }
+      update(dt) {
+        if (this.projType === "boomerang") {
+          if (this.life < this.maxLife * 0.52 && !this.hasReturned) {
+            this.hasReturned = true; this.hitTargets.clear();
+          }
+          if (this.hasReturned) {
+            const targetX = this.owner.x + this.owner.width / 2;
+            const dir = targetX >= this.x ? 1 : -1;
+            this.vx += dir * 2400 * dt;
+            this.vx = Math.max(-720, Math.min(720, this.vx));
+            if (Math.abs(targetX - this.x) < 28) this.active = false;
+          }
+        }
+        if (this.projType === "bouncing_orb") {
+          this.vz -= 1500 * dt;
+          this.z += this.vz * dt;
+          if (this.z <= 0) { this.z = 0; this.vz = 420; }
+        } else if (this.vz !== 0) {
+          this.z = Math.max(0, this.z + this.vz * dt);
+        }
+        this.x += this.vx * dt;
+        this.angle += this.facing * 16 * dt;
+        this.life -= dt;
+        if (this.life <= 0 || this.x < -80 || this.x > CONFIG.canvasWidth + 80) this.active = false;
+      }
+      draw(ctx, showBoxes) {
+        const hb = this.getHitbox();
+        const cx = hb.x + hb.width / 2; const cy = hb.y + hb.height / 2;
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath(); ctx.ellipse(cx, this.groundY, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+        if (this.projType === "coins") {
+          ctx.translate(cx, cy); ctx.rotate(this.angle);
+          drawOutlinedRoundRect(ctx, -14, -8, 28, 16, 3, "#2a9d8f", 1.8);
+          ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5; ctx.stroke();
+        } else if (this.projType === "ink_slash") {
+          ctx.translate(cx, cy); ctx.scale(this.facing, 1);
+          ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 8; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.arc(-10, 0, 24, -0.9, 0.9); ctx.stroke();
+          ctx.strokeStyle = "#14101a"; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.arc(-6, 0, 24, -0.8, 0.8); ctx.stroke();
+          ctx.fillStyle = "#fff"; ctx.font = "900 16px Microsoft JhengHei, sans-serif";
+          ctx.fillText("判", -6, 6);
+        } else if (this.projType === "boomerang") {
+          ctx.translate(cx, cy); ctx.rotate(this.angle * 1.4);
+          drawOutlinedRoundRect(ctx, -7, -15, 14, 30, 4, "#ced4da", 2);
+          ctx.fillStyle = "#212529"; ctx.fillRect(-7, -15, 14, 6);
+          ctx.fillStyle = "#52b788"; ctx.fillRect(9, -10, 4, 18);
+        } else {
+          ctx.strokeStyle = "rgba(255, 209, 102, 0.8)"; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(cx, cy, this.width * 0.65, 0, Math.PI * 2); ctx.stroke();
+          ctx.translate(cx, cy); ctx.rotate(this.angle);
+          ctx.fillStyle = "#a59788"; ctx.beginPath(); ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5; ctx.stroke();
+          ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(0, 0, this.width / 3.2, 0, Math.PI * 1.5); ctx.stroke();
+        }
+        ctx.restore();
+        if (showBoxes) { ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 2; ctx.strokeRect(hb.x, hb.y, hb.width, hb.height); }
+      }
+    }
+
+    /**
+     * 遠端連線玩家輸入代理器 (將網路傳來的標準動作鍵轉換為 Player 可讀的 InputSource)
+     */
+    class RemoteInputController {
+      constructor() {
+        this.held = new Set();
+        this.pressed = new Set();
+      }
+      applyNetworkPacket(heldArr, pressedArr) {
+        this.held.clear();
+        if (Array.isArray(heldArr)) {
+          for (const k of heldArr) this.held.add(k);
+        }
+        if (Array.isArray(pressedArr)) {
+          for (const k of pressedArr) this.pressed.add(k);
+        }
+      }
+      endFrame() {
+        this.pressed.clear();
+      }
+      isHeld(codes) { return Array.isArray(codes) ? codes.some((c) => this.held.has(c)) : this.held.has(codes); }
+      wasPressed(codes) { return Array.isArray(codes) ? codes.some((c) => this.pressed.has(c)) : this.pressed.has(codes); }
+    }
+
+    const CANONICAL_NET_CONTROLS = {
+      up: "ACT_UP",
+      down: "ACT_DOWN",
+      left: "ACT_LEFT",
+      right: "ACT_RIGHT",
+      jump: "ACT_JUMP",
+      light: "ACT_LIGHT",
+      heavy: "ACT_HEAVY",
+      dash: "ACT_DASH",
+      ult: "ACT_ULT"
+    };
+
+    const SLOT_THEME_COLORS = ["#ff4d5a", "#4da3ff", "#2dc653", "#c77dff"];
+
+    // =========================================================================
+    // 7. 玩家角色類別 (支援 2～4 人同場大亂鬥、集氣條 Energy 與超必殺技 Ultimate)
+    // =========================================================================
+    class Player {
+      constructor({ id, x, y, facing, controls, charDef }) {
+        this.id = id;
+        this.spawnX = x;
+        this.spawnY = y;
+        this.spawnFacing = facing;
+        this.controls = controls;
+        this.width = CONFIG.playerWidth;
+        this.height = CONFIG.playerHeight;
+        this.isCOM = false;
+        this.isRemote = false;
+        this.comDiffLabel = "";
+        this.customNickname = "";
+        this.wins = 0;
+        this.energy = 0;
+        this.slotColor = SLOT_THEME_COLORS[(id - 1) % 4];
+        this.hitTargetsThisSwing = new Set();
+        this.setCharacter(charDef);
+      }
+
+      setCharacter(charDef) {
+        this.charDef = charDef;
+        const prefix = this.customNickname
+          ? `${this.id}P ${this.customNickname}`
+          : (this.isCOM ? `COM[${this.comDiffLabel || "普通"}]` : `${this.id}P`);
+        this.name = `${prefix} (${charDef.name})`;
+        this.maxHp = charDef.maxHp;
+        this.color = charDef.themeColor;
+        this.reset(false);
+      }
+
+      reset(keepPartialEnergy = false) {
+        this.x = this.spawnX; this.y = this.spawnY; this.z = 0;
+        this.vx = 0; this.vy = 0; this.vz = 0; this.facing = this.spawnFacing;
+        this.hp = this.maxHp; this.trailHp = this.maxHp;
+        this.energy = keepPartialEnergy ? Math.min(CONFIG.maxEnergy, Math.round(this.energy * 0.45)) : 0;
+        this.state = "idle"; this.stateTimer = 0; this.hitstunTimer = 0;
+        this.invulnTimer = 0;         // 受擊後短暫無敵幀，防止被角落無限連段秒殺
+        this.attackCooldownTimer = 0; // 收招後出招冷卻
+        this.dashCooldownTimer = 0; this.dashDirX = 0; this.dashDirY = 0; this.afterimageTimer = 0;
+        this.currentAttack = null;
+        this.hasHitThisSwing = false;
+        this.hitTargetsThisSwing.clear();
+        this.multiHitTimer = 0;
+        this.projectileSpawned = false; this.lockedTargetPos = null;
+        this.hitFlashTimer = 0; this.animTime = 0;
+      }
+
+      addEnergy(amount) {
+        this.energy = Math.max(0, Math.min(CONFIG.maxEnergy, this.energy + amount));
+      }
+
+      getDrawTopY() { return this.y - this.height - this.z; }
+      getHurtbox() { return { x: this.x, y: this.getDrawTopY(), width: this.width, height: this.height, groundY: this.y }; }
+      getActiveHitbox() {
+        if (this.state !== "attack_active" || !this.currentAttack || this.currentAttack.isProjectile) return null;
+        const atk = this.currentAttack;
+        if (atk.trackOpponent && this.lockedTargetPos) {
+          return { x: this.lockedTargetPos.x - atk.width / 2, y: this.lockedTargetPos.y - atk.height, width: atk.width, height: atk.height, groundY: this.lockedTargetPos.y, depthTolerance: atk.depthTolerance };
+        }
+        if (atk.centeredHitbox) {
+          const cx = this.x + this.width / 2;
+          return { x: cx - atk.width / 2, y: this.y - this.z - atk.offsetZ - atk.height, width: atk.width, height: atk.height, groundY: this.y, depthTolerance: atk.depthTolerance };
+        }
+        const offsetX = atk.offsetX || 0;
+        const hx = this.facing === 1 ? this.x + this.width + offsetX : this.x - atk.width - offsetX;
+        const hy = this.y - this.z - atk.offsetZ - atk.height;
+        return { x: hx, y: hy, width: atk.width, height: atk.height, groundY: this.y, depthTolerance: atk.depthTolerance };
+      }
+
+      update(dt, inputSource, game) {
+        this.animTime += dt;
+        if (this.trailHp > this.hp) this.trailHp = Math.max(this.hp, this.trailHp - 45 * dt);
+        if (this.dashCooldownTimer > 0) this.dashCooldownTimer = Math.max(0, this.dashCooldownTimer - dt);
+        if (this.hitFlashTimer > 0) this.hitFlashTimer = Math.max(0, this.hitFlashTimer - dt);
+        if (this.invulnTimer > 0) this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+        if (this.attackCooldownTimer > 0) this.attackCooldownTimer = Math.max(0, this.attackCooldownTimer - dt);
+
+        if (this.state === "ko") { this.applyPhysics(dt, true, game.currentMap); return; }
+
+        // 戰鬥期間隨時間自然微幅集氣 (狂暴時刻雙倍集氣，集氣速度已提升 x1.3)
+        const passiveRate = game.isRageTime() ? CONFIG.passiveEnergyPerSec * 2.0 : CONFIG.passiveEnergyPerSec;
+        this.addEnergy(passiveRate * dt);
+
+        if (this.state === "hitstun") {
+          this.hitstunTimer -= dt;
+          if (this.hitstunTimer <= 0) this.state = this.z > 0 ? "jump" : "idle";
+          this.applyPhysics(dt, true, game.currentMap);
+          return;
+        }
+        if (this.state === "dash") {
+          this.stateTimer -= dt; this.afterimageTimer -= dt;
+          if (this.afterimageTimer <= 0) {
+            game.afterimages.push(new Afterimage(this.x, this.getDrawTopY(), this.width, this.height, this.color));
+            this.afterimageTimer = 0.035;
+          }
+          const mult = this.charDef.speedMult;
+          this.vx = this.dashDirX * CONFIG.dashSpeed * mult;
+          this.vy = this.dashDirY * (CONFIG.dashSpeed * 0.72 * mult);
+          if (this.stateTimer <= 0) { this.vx *= 0.35; this.vy *= 0.35; this.state = this.z > 0 ? "jump" : "idle"; }
+          this.applyPhysics(dt, false, game.currentMap);
+          return;
+        }
+
+        if (this.state === "attack_startup" || this.state === "attack_active" || this.state === "attack_recovery") {
+          if (!this.currentAttack) {
+            this.state = this.z > 0 ? "jump" : "idle";
+            this.applyPhysics(dt, true, game.currentMap);
+            return;
+          }
+          this.stateTimer -= dt;
+          if (this.state === "attack_active" && this.currentAttack?.multiHitInterval) {
+            this.multiHitTimer -= dt;
+            if (this.multiHitTimer <= 0) {
+              this.hasHitThisSwing = false;
+              this.hitTargetsThisSwing.clear();
+              this.multiHitTimer = this.currentAttack.multiHitInterval;
+            }
+          }
+          if (this.state === "attack_active" && this.currentAttack?.lungeX) {
+            this.vx = this.facing * this.currentAttack.lungeX; this.vy = 0;
+          } else if (this.z === 0) { this.vx = 0; this.vy = 0; }
+
+          if (this.state === "attack_active" && (this.currentAttack?.isProjectile || this.currentAttack?.alsoSpawnProjectiles) && !this.projectileSpawned) {
+            this.projectileSpawned = true;
+            const projSpec = this.currentAttack.alsoSpawnProjectiles || this.currentAttack;
+            const px = this.facing === 1 ? this.x + this.width + (projSpec.offsetX || 0) : this.x - projSpec.width - (projSpec.offsetX || 0);
+            const count = projSpec.projCount || 1;
+            for (let i = 0; i < count; i++) {
+              const mid = (count - 1) / 2;
+              const vz = count > 1 ? (i - mid) * 90 + (projSpec.projType === "bouncing_orb" ? 280 : 0) : (projSpec.projType === "bouncing_orb" ? 260 : 0);
+              const speedMult = count > 1 ? (0.85 + i * 0.14) : 1;
+              game.projectiles.push(new Projectile({ owner: this, x: px, groundY: this.y, z: this.z, facing: this.facing, attackData: projSpec, vz, speedMult }));
+            }
+          }
+
+          if (this.stateTimer <= 0) {
+            if (this.state === "attack_startup") {
+              this.state = "attack_active"; this.stateTimer = this.currentAttack.active || 0.1;
+              this.hasHitThisSwing = false;
+              this.hitTargetsThisSwing.clear();
+              this.multiHitTimer = this.currentAttack.multiHitInterval || 99;
+              this.projectileSpawned = false;
+            } else if (this.state === "attack_active") {
+              this.state = "attack_recovery"; this.stateTimer = this.currentAttack.recovery || 0.12;
+            } else {
+              const finishedAtk = this.currentAttack;
+              this.currentAttack = null; this.lockedTargetPos = null;
+              this.attackCooldownTimer = finishedAtk?.name === "ult" ? 0.35 : (finishedAtk?.name === "heavy" ? 0.12 : 0.04);
+              this.state = this.z > 0 ? "jump" : "idle";
+            }
+          }
+          this.applyPhysics(dt, true, game.currentMap);
+          return;
+        }
+        this.handleMovementAndActions(inputSource, game);
+        this.applyPhysics(dt, true, game.currentMap);
+      }
+
+      handleMovementAndActions(inputSource, game) {
+        let dirX = 0; let dirY = 0;
+        if (inputSource.isHeld(this.controls.left)) dirX -= 1;
+        if (inputSource.isHeld(this.controls.right)) dirX += 1;
+        if (inputSource.isHeld(this.controls.up)) dirY -= 1;
+        if (inputSource.isHeld(this.controls.down)) dirY += 1;
+
+        const mult = this.charDef.speedMult;
+        if (dirX !== 0 && dirY !== 0) {
+          const inv = 1 / Math.SQRT2;
+          this.vx = dirX * inv * CONFIG.moveSpeedX * mult;
+          this.vy = dirY * inv * CONFIG.moveSpeedY * mult;
+        } else {
+          this.vx = dirX * CONFIG.moveSpeedX * mult;
+          this.vy = dirY * CONFIG.moveSpeedY * mult;
+        }
+        if (dirX !== 0) this.facing = dirX;
+        if (this.z === 0) this.state = (dirX !== 0 || dirY !== 0) ? "move" : "idle";
+
+        if (inputSource.wasPressed(this.controls.jump) && this.z === 0) {
+          this.vz = CONFIG.jumpVelocity; this.state = "jump";
+          game.spawnDust(this.x + this.width / 2, this.y, 5);
+        }
+        if (inputSource.wasPressed(this.controls.dash) && this.dashCooldownTimer <= 0) {
+          this.state = "dash"; this.stateTimer = CONFIG.dashDuration;
+          this.dashCooldownTimer = CONFIG.dashCooldown; this.afterimageTimer = 0;
+          if (dirX !== 0 || dirY !== 0) {
+            const len = Math.hypot(dirX, dirY);
+            this.dashDirX = dirX / len; this.dashDirY = dirY / len;
+          } else { this.dashDirX = this.facing; this.dashDirY = 0; }
+          game.spawnDust(this.x + this.width / 2, this.y, 6);
+          return;
+        }
+
+        // 必殺技觸發：嚴格規定「集氣條必須滿 100%」才能施放！
+        if (inputSource.wasPressed(this.controls.ult)) {
+          if (Math.floor(this.energy) >= CONFIG.maxEnergy && this.charDef.attacks.ult) {
+            this.energy = 0;
+            this.startAttack(this.charDef.attacks.ult, game);
+            game.triggerUltCutIn(this);
+            return;
+          } else {
+            // 未滿 100% 按必殺鍵時給予明確提示，不可施放
+            game.floatingTexts.push(
+              new FloatingText(this.x + this.width / 2, this.getDrawTopY() - 10, `集氣未滿 100% (${Math.floor(this.energy)}%)`, "#adb5bd", 0.9)
+            );
+          }
+        }
+
+        if (this.attackCooldownTimer <= 0) {
+          if (inputSource.wasPressed(this.controls.light)) {
+            this.startAttack(this.charDef.attacks.light, game);
+          } else if (inputSource.wasPressed(this.controls.heavy)) {
+            this.startAttack(this.charDef.attacks.heavy, game);
+          }
+        }
+      }
+
+      startAttack(attackData, game) {
+        if (typeof attackData === "string") {
+          attackData = this.charDef.attacks[attackData];
+        }
+        if (!attackData) return;
+        this.currentAttack = attackData;
+        this.state = "attack_startup";
+        this.stateTimer = attackData.startup;
+        this.hasHitThisSwing = false;
+        this.hitTargetsThisSwing.clear();
+        this.projectileSpawned = false;
+        if (attackData.trackOpponent && game) {
+          const opp = game.getNearestOpponent(this);
+          if (opp) {
+            this.lockedTargetPos = { x: opp.x + opp.width / 2, y: opp.y };
+          } else {
+            this.lockedTargetPos = { x: this.x + this.facing * 140, y: this.y };
+          }
+        } else {
+          this.lockedTargetPos = null;
+        }
+      }
+
+      takeHit(attackData, attackerFacing, finalDamage) {
+        const hasArmor = this.currentAttack?.superArmor && (this.state === "attack_startup" || this.state === "attack_active");
+        const baseDmg = finalDamage !== undefined ? finalDamage : attackData.damage;
+        const dmg = hasArmor ? Math.ceil(baseDmg * 0.5) : baseDmg;
+        this.hp = Math.max(0, this.hp - dmg);
+        this.hitFlashTimer = 0.12;
+        this.addEnergy(CONFIG.hurtEnergyGain);
+
+        // 設定輕量受擊保護無敵幀，僅防止同一幀多重重疊判定瞬間蒸發，不影響正常連段手感
+        if (attackData.multiHitInterval) {
+          this.invulnTimer = Math.max(this.invulnTimer, attackData.multiHitInterval - 0.015);
+        } else {
+          this.invulnTimer = Math.max(this.invulnTimer, 0.06);
+        }
+
+        if (this.hp <= 0) {
+          this.currentAttack = null;
+          this.state = "ko"; this.vx = attackerFacing * 380; this.vy = 0; this.vz = 340;
+          return dmg;
+        }
+        if (hasArmor) return dmg;
+        this.currentAttack = null; this.lockedTargetPos = null;
+        this.state = "hitstun"; this.hitstunTimer = attackData.hitstun || 0.2;
+        this.vx = attackData.knockbackX > 0 ? attackerFacing * attackData.knockbackX : 0;
+        this.vy = 0;
+        if (attackData.knockbackZ > 0) this.vz = attackData.knockbackZ;
+        return dmg;
+      }
+
+      applyPhysics(dt, applyGravity = true, mapDef = null) {
+        if (this.state === "hitstun" || this.state === "ko") {
+          const friction = this.z === 0 ? CONFIG.groundFriction : CONFIG.airFriction;
+          if (this.vx > 0) this.vx = Math.max(0, this.vx - friction * dt);
+          else if (this.vx < 0) this.vx = Math.min(0, this.vx + friction * dt);
+        }
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        if (applyGravity && (this.z > 0 || this.vz !== 0)) {
+          this.vz -= CONFIG.gravity * dt; this.z += this.vz * dt;
+          if (this.z <= 0) { this.z = 0; this.vz = 0; if (this.state === "jump") this.state = "idle"; }
+        }
+        const topY = mapDef ? mapDef.arenaTopY : CONFIG.arenaTopY;
+        const botY = mapDef ? mapDef.arenaBottomY : CONFIG.arenaBottomY;
+        this.x = Math.max(0, Math.min(CONFIG.canvasWidth - this.width, this.x));
+        this.y = Math.max(topY, Math.min(botY, this.y));
+      }
+
+      draw(ctx, showBoxes, showHeadTag = false) {
+        ctx.save();
+        const anim = computeAnimPose(this);
+        const centerX = this.x + this.width / 2;
+        const footY = this.y - this.z;
+
+        if (this.currentAttack?.trackOpponent && this.lockedTargetPos) {
+          const tx = this.lockedTargetPos.x; const ty = this.lockedTargetPos.y;
+          const isUlt = this.currentAttack?.name === "ult";
+          const pillars = isUlt ? [-62, 0, 62] : [0];
+          ctx.save();
+          for (const pxOff of pillars) {
+            const px = tx + pxOff;
+            if (this.state === "attack_startup") {
+              ctx.strokeStyle = isUlt ? "#ff0054" : "#ffbe0b"; ctx.lineWidth = 3;
+              ctx.beginPath(); ctx.ellipse(px, ty, 40 * anim.attackProgress + 10, 14, 0, 0, Math.PI * 2); ctx.stroke();
+              ctx.fillStyle = "rgba(230, 57, 70, 0.35)";
+              ctx.beginPath(); ctx.ellipse(px, ty, 40, 14, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (this.state === "attack_active") {
+              const grad = ctx.createLinearGradient(px, ty, px, ty - 135);
+              grad.addColorStop(0, isUlt ? "rgba(255, 0, 84, 0.95)" : "rgba(230, 57, 70, 0.95)");
+              grad.addColorStop(1, "rgba(255, 183, 3, 0.1)");
+              ctx.fillStyle = grad; ctx.fillRect(px - 38, ty - 130, 76, 130);
+              ctx.fillStyle = "#fff3b0"; ctx.fillRect(px - 14, ty - 125, 28, 125);
+              ctx.strokeStyle = "#ffbe0b"; ctx.lineWidth = 4;
+              ctx.beginPath(); ctx.ellipse(px, ty, 44, 15, 0, 0, Math.PI * 2); ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+
+        const shadowScale = Math.max(0.45, 1 - this.z / 260);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+        ctx.beginPath(); ctx.ellipse(centerX, this.y, (this.width * 0.56) * shadowScale, 9 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+
+        // 角色腳下 P1~P4 專屬色彩光圈 (在多人亂鬥中清楚辨識)
+        if (showHeadTag && this.state !== "ko") {
+          ctx.save();
+          ctx.strokeStyle = this.slotColor;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.ellipse(centerX, this.y, 28, 8, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 集氣滿 100% 腳下與全身金色鬥氣光環
+        if (this.energy >= CONFIG.maxEnergy && this.state !== "ko") {
+          const pulse = Math.sin(this.animTime * 14) * 5;
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 209, 102, 0.85)";
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.ellipse(centerX, this.y, 34 + pulse, 11 + pulse * 0.3, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255, 190, 11, 0.18)";
+          ctx.beginPath();
+          ctx.ellipse(centerX, footY - this.height * 0.48, 32 + pulse * 0.6, 48 + pulse, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (this.state === "attack_startup" && (this.currentAttack?.name === "heavy" || this.currentAttack?.name === "ult")) {
+          const isUlt = this.currentAttack?.name === "ult";
+          ctx.strokeStyle = isUlt ? "#ff0054" : "#ffd166"; ctx.lineWidth = isUlt ? 5 : 3;
+          ctx.beginPath(); ctx.arc(centerX, footY - this.height / 2, isUlt ? 56 : 42, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        ctx.save();
+        // 受擊保護無敵幀微閃爍提示
+        if (this.invulnTimer > 0.08 && Math.floor(this.animTime * 28) % 2 === 0) {
+          ctx.globalAlpha = 0.62;
+        }
+        ctx.translate(centerX, footY);
+        ctx.scale(this.facing, 1);
+        if (anim.isKO) { ctx.rotate(-Math.PI / 2); ctx.translate(16, 12); }
+        else { ctx.scale(anim.squashX, anim.squashY); }
+
+        this.charDef.drawLocalModel(ctx, this, anim);
+        ctx.restore();
+
+        // 多人亂鬥或連線模式時，頭頂顯示 P1~P4 標籤與迷你血條
+        if (showHeadTag && this.state !== "ko") {
+          const tagY = footY - this.height - 20;
+          const barW = 52;
+          const hpRatio = Math.max(0, Math.min(1, this.hp / this.maxHp));
+          ctx.save();
+          ctx.font = "bold 11px Microsoft JhengHei, sans-serif";
+          ctx.textAlign = "center";
+          const shortTag = this.customNickname ? `${this.id}P ${this.customNickname}` : (this.isCOM ? `${this.id}P COM` : `${this.id}P`);
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = 3;
+          ctx.strokeText(shortTag, centerX, tagY - 5);
+          ctx.fillStyle = this.slotColor;
+          ctx.fillText(shortTag, centerX, tagY - 5);
+
+          ctx.fillStyle = "rgba(0,0,0,0.75)";
+          ctx.fillRect(centerX - barW / 2, tagY, barW, 5);
+          ctx.fillStyle = hpRatio > 0.3 ? "#2dc653" : "#ff4d6d";
+          ctx.fillRect(centerX - barW / 2, tagY, barW * hpRatio, 5);
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(centerX - barW / 2, tagY, barW, 5);
+          ctx.restore();
+        }
+
+        if (this.dashCooldownTimer > 0) {
+          const ratio = 1 - this.dashCooldownTimer / CONFIG.dashCooldown;
+          ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(this.x, this.y + 10, this.width, 4);
+          ctx.fillStyle = "#4cc9f0"; ctx.fillRect(this.x, this.y + 10, this.width * ratio, 4);
+        }
+
+        if (showBoxes) {
+          const hurt = this.getHurtbox();
+          ctx.strokeStyle = "#38b000"; ctx.lineWidth = 2; ctx.strokeRect(hurt.x, hurt.y, hurt.width, hurt.height);
+          const hit = this.getActiveHitbox();
+          if (hit) {
+            ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 2; ctx.strokeRect(hit.x, hit.y, hit.width, hit.height);
+            ctx.strokeStyle = "rgba(255, 209, 102, 0.8)";
+            ctx.strokeRect(hit.x, hit.groundY - hit.depthTolerance, hit.width, hit.depthTolerance * 2);
+          }
+        }
+        ctx.restore();
+      }
+    }
+
+    // =========================================================================
+    // 8. 遊戲主控類別 (支援 2～4 人同場大亂鬥 + WebSocket 連線對戰房 + 三戰兩勝制)
+    // =========================================================================
+    class Game {
+      constructor(canvas) {
+        this.canvas = canvas; this.ctx = canvas.getContext("2d");
+        this.input = new InputManager();
+        this.comAI = new COMController();
+        this.comAIs = [null, new COMController(), new COMController(), new COMController(), new COMController()];
+        this.remoteInputs = [null, new RemoteInputController(), new RemoteInputController(), new RemoteInputController(), new RemoteInputController()];
+
+        this.isMobile = detectMobileDevice();
+        this.scene = "select";
+        this.playMode = "com"; // "com" | "pvp" | "online"
+        this.isComMode = true;
+        this.brawlCount = 2;   // 單機大亂鬥人數 (2~4)
+        this.comDifficulty = "normal";
+        this.p1Index = 0; this.p2Index = 1; this.p3Index = 2; this.p4Index = 3;
+        this.p1Locked = false; this.p2Locked = false;
+        this.selectStep = 1;
+        this.mapIndex = 0; this.currentMap = MAP_TEMPLATES[0];
+        this.worldTime = 0;
+
+        CHARACTER_ROSTER.forEach((c) => getCachedImage(c.photo));
+        MAP_TEMPLATES.forEach((m) => { if (m.preview) getCachedImage(m.preview); });
+
+        const midY = (this.currentMap.arenaTopY + this.currentMap.arenaBottomY) / 2;
+        this.p1 = new Player({
+          id: 1, x: 200, y: midY, facing: 1, charDef: CHARACTER_ROSTER[this.p1Index],
+          controls: { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyJ" }
+        });
+        this.p2 = new Player({
+          id: 2, x: CONFIG.canvasWidth - 200 - CONFIG.playerWidth, y: midY, facing: -1, charDef: CHARACTER_ROSTER[this.p2Index],
+          controls: { up: "ArrowUp", left: "ArrowLeft", down: "ArrowDown", right: "ArrowRight", jump: ["ShiftRight", "Enter"], light: "Comma", heavy: "Period", dash: "Slash", ult: ["Semicolon", "KeyM"] }
+        });
+        this.p3 = new Player({
+          id: 3, x: 320, y: midY + 40, facing: 1, charDef: CHARACTER_ROSTER[this.p3Index],
+          controls: CANONICAL_NET_CONTROLS
+        });
+        this.p4 = new Player({
+          id: 4, x: CONFIG.canvasWidth - 320 - CONFIG.playerWidth, y: midY + 40, facing: -1, charDef: CHARACTER_ROSTER[this.p4Index],
+          controls: CANONICAL_NET_CONTROLS
+        });
+
+        this.allFighters = [this.p1, this.p2, this.p3, this.p4];
+        this.activeFighters = [this.p1, this.p2];
+
+        this.particles = []; this.afterimages = []; this.projectiles = [];
+        this.starbursts = []; this.floatingTexts = [];
+        this.hitstopTimer = 0; this.shakeTimer = 0; this.shakeIntensity = 0;
+
+        // 三戰兩勝與 60 秒計時狀態
+        this.roundNumber = 1;
+        this.p1Wins = 0;
+        this.p2Wins = 0;
+        this.roundTimer = CONFIG.roundDuration;
+        this.roundIntroTimer = 0;
+        this.roundEndReason = ""; // "K.O." 或 "TIME OVER!"
+        this.koWinner = null;
+        this.matchWinner = null;
+        this.championFighter = null; // 三戰兩勝總冠軍角色物件
+        this.victoryTime = 0;        // 總冠軍勝利畫面動畫計時
+        this.victoryConfetti = [];   // 勝利畫面漫天彩帶與金粉
+        this.fireworkTimer = 0;      // 勝利畫面煙火計時
+        this.resetTimer = 0;
+        this.ultBanner = null;       // 超必殺技特寫橫幅
+        this.showBoxes = false;
+
+        // 🌐 WebSocket 連線對戰房狀態
+        this.ws = null;
+        this.wsConnected = false;
+        this.onlineRoom = null;      // 目前所在房間資料
+        this.onlineMySlot = 1;       // 我在房間內的幾號位 (1~4)
+        this.onlineIsHost = false;   // 我是否為 1P 房主
+        this.netSyncTimer = 0;
+        this.publicRooms = [];
+
+        this.selectOverlay = document.getElementById("selectOverlay");
+        this.rosterGrid = document.getElementById("rosterGrid");
+        this.mapOptions = document.getElementById("mapOptions");
+        this.p1StatusEl = document.getElementById("p1SelectStatus");
+        this.p2StatusEl = document.getElementById("p2SelectStatus");
+        this.btnModePvp = document.getElementById("btnModePvp");
+        this.btnModeCom = document.getElementById("btnModeCom");
+        this.btnModeOnline = document.getElementById("btnModeOnline");
+        this.modeSwitchGroup = document.getElementById("modeSwitchGroup");
+        this.brawlCountGroup = document.getElementById("brawlCountGroup");
+        this.diffSwitchGroup = document.getElementById("diffSwitchGroup");
+        this.onlineLobbyPanel = document.getElementById("onlineLobbyPanel");
+        this.onlineLobbyBrowser = document.getElementById("onlineLobbyBrowser");
+        this.onlineRoomInside = document.getElementById("onlineRoomInside");
+        this.wsStatusBadge = document.getElementById("wsStatusBadge");
+        this.wsUrlInput = document.getElementById("wsUrlInput");
+        this.onlineNicknameInput = document.getElementById("onlineNicknameInput");
+        this.onlineRoomIdInput = document.getElementById("onlineRoomIdInput");
+        this.onlineRoomList = document.getElementById("onlineRoomList");
+        this.roomSlotsBar = document.getElementById("roomSlotsBar");
+        this.activeRoomTitle = document.getElementById("activeRoomTitle");
+        this.selectGuideText = document.getElementById("selectGuideText");
+        this.btnStartMatch = document.getElementById("btnStartMatch");
+        this.vBtnUlt = document.getElementById("vBtnUlt");
+
+        // 自動設定預設 WebSocket 伺服器網址 (支援 localStorage / config.js / Vercel 部署 / 本機模式)
+        let resolvedWsUrl = "";
+        try {
+          resolvedWsUrl = localStorage.getItem("tunshi_tiandi_ws_url") || "";
+        } catch (_) {}
+        if (!resolvedWsUrl && window.SERVER_CONFIG && window.SERVER_CONFIG.wsUrl) {
+          resolvedWsUrl = window.SERVER_CONFIG.wsUrl.trim();
+        }
+
+        const isVercelHost = window.location && window.location.hostname && (
+          window.location.hostname.endsWith("vercel.app") ||
+          window.location.hostname.includes("vercel")
+        );
+
+        if (this.wsUrlInput) {
+          if (resolvedWsUrl) {
+            this.wsUrlInput.value = resolvedWsUrl;
+          } else if (isVercelHost) {
+            // 在 Vercel 託管但尚未設定 Render 後端時
+            this.wsUrlInput.value = "";
+            this.wsUrlInput.placeholder = "請輸入 Render 後端 wss:// 網址";
+            if (this.wsStatusBadge) {
+              this.wsStatusBadge.className = "ws-status-badge disconnected";
+              this.wsStatusBadge.textContent = "⚙️ 請設定後端網址";
+            }
+          } else if (window.location && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
+            const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
+            this.wsUrlInput.value = `${wsProto}${window.location.host}`;
+          } else {
+            this.wsUrlInput.value = "ws://localhost:3000";
+          }
+        }
+
+        this.setupUIEvents();
+        this.buildSelectUI();
+        this.buildMapUI();
+        this.setComMode(true);
+
+        // 若有明確目標伺服器或非 Vercel 環境，自動背景連線
+        if (this.wsUrlInput && this.wsUrlInput.value.trim()) {
+          this.connectWebSocket();
+        }
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      getNearestOpponent(fighter) {
+        let best = null;
+        let bestDist = Infinity;
+        for (const other of this.activeFighters) {
+          if (other === fighter || other.state === "ko" || other.hp <= 0) continue;
+          const d = Math.hypot((other.x + other.width / 2) - (fighter.x + fighter.width / 2), (other.y - fighter.y) * 1.4);
+          if (d < bestDist) {
+            bestDist = d;
+            best = other;
+          }
+        }
+        return best;
+      }
+
+      isRageTime() {
+        return this.roundTimer <= CONFIG.rageTimeThreshold && !this.koWinner;
+      }
+
+      triggerUltCutIn(fighter) {
+        this.ultBanner = {
+          fighterName: fighter.name,
+          ultTitle: fighter.charDef.ultTitle || "超必殺奧義",
+          photo: fighter.charDef.photo,
+          faceCrop: fighter.charDef.faceCrop,
+          color: fighter.color,
+          timer: 1.05,
+          maxTimer: 1.05
+        };
+        this.hitstopTimer = Math.max(this.hitstopTimer, 0.16);
+        this.shakeTimer = 0.34;
+        this.shakeIntensity = 15;
+        this.spawnHitSparks(fighter.x + fighter.width / 2, fighter.getDrawTopY() + 36, true);
+        if (this.playMode === "online" && this.onlineIsHost) {
+          this.sendWs({
+            type: "game_event",
+            event: {
+              kind: "ult",
+              slot: fighter.id,
+              fighterName: fighter.name,
+              ultTitle: fighter.charDef.ultTitle || "超必殺奧義",
+              photo: fighter.charDef.photo,
+              faceCrop: fighter.charDef.faceCrop,
+              color: fighter.color
+            }
+          });
+        }
+      }
+
+      // =======================================================================
+      // 🌐 WebSocket 連線對戰房與即時房間列表管理
+      // =======================================================================
+      connectWebSocket() {
+        let rawUrl = (this.wsUrlInput && this.wsUrlInput.value.trim()) ? this.wsUrlInput.value.trim() : "";
+        if (!rawUrl) {
+          if (this.wsStatusBadge) {
+            this.wsStatusBadge.className = "ws-status-badge disconnected";
+            this.wsStatusBadge.textContent = "🔴 請輸入伺服器網址";
+          }
+          return;
+        }
+
+        // 智慧正規化網址 (自動將 https:// 轉換為 wss://，http:// 轉換為 ws://)
+        let url = rawUrl;
+        if (url.startsWith("http://")) {
+          url = "ws://" + url.slice(7);
+        } else if (url.startsWith("https://")) {
+          url = "wss://" + url.slice(8);
+        } else if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
+          url = "wss://" + url;
+        }
+        url = url.replace(/\/+$/, "");
+
+        if (this.wsUrlInput) {
+          this.wsUrlInput.value = url;
+        }
+
+        if (typeof WebSocket === "undefined") return;
+        try {
+          if (this.ws) {
+            try { this.ws.close(); } catch (_) {}
+          }
+          if (this.wsStatusBadge) {
+            this.wsStatusBadge.className = "ws-status-badge";
+            this.wsStatusBadge.textContent = "⏳ 連線中...";
+          }
+          const ws = new WebSocket(url);
+          this.ws = ws;
+
+          ws.onopen = () => {
+            if (this.ws !== ws) return;
+            this.wsConnected = true;
+            try {
+              localStorage.setItem("tunshi_tiandi_ws_url", url);
+            } catch (_) {}
+            if (this.wsStatusBadge) {
+              this.wsStatusBadge.className = "ws-status-badge connected";
+              this.wsStatusBadge.textContent = "🟢 已連線大廳";
+            }
+            this.sendWs({ type: "get_rooms" });
+          };
+
+          ws.onmessage = (ev) => {
+            if (this.ws !== ws) return;
+            try {
+              const msg = JSON.parse(ev.data);
+              this.handleWsMessage(msg);
+            } catch (_) {}
+          };
+
+          const onDisconnect = () => {
+            if (this.ws !== ws) return;
+            this.wsConnected = false;
+            if (this.wsStatusBadge) {
+              this.wsStatusBadge.className = "ws-status-badge disconnected";
+              this.wsStatusBadge.textContent = "🔴 未連線 (請執行 node server.js)";
+            }
+          };
+
+          ws.onclose = onDisconnect;
+          ws.onerror = onDisconnect;
+        } catch (_) {}
+      }
+
+      sendWs(payload) {
+        if (this.ws && this.wsConnected && this.ws.readyState === 1) {
+          try {
+            this.ws.send(JSON.stringify(payload));
+          } catch (_) {}
+        }
+      }
+
+      handleWsMessage(msg) {
+        if (!msg || !msg.type) return;
+
+        switch (msg.type) {
+          case "welcome":
+          case "room_list": {
+            this.publicRooms = Array.isArray(msg.rooms) ? msg.rooms : [];
+            this.renderPublicRoomList();
+            break;
+          }
+
+          case "room_error": {
+            if (this.selectGuideText) {
+              this.selectGuideText.textContent = `⚠️ ${msg.message}`;
+            }
+            break;
+          }
+
+          case "room_state": {
+            this.onlineRoom = msg.room;
+            this.onlineMySlot = msg.mySlot || 1;
+            this.onlineIsHost = !!msg.isHost;
+            if (Number.isInteger(this.onlineRoom.mapIndex) && MAP_TEMPLATES[this.onlineRoom.mapIndex]) {
+              this.mapIndex = this.onlineRoom.mapIndex;
+              this.currentMap = MAP_TEMPLATES[this.mapIndex];
+              if (this.mapChipEls) {
+                this.mapChipEls.forEach((c, i) => c.classList.toggle("active", i === this.mapIndex));
+              }
+            }
+            this.renderInsideRoomUI();
+            this.updateSelectUI();
+            break;
+          }
+
+          case "left_room": {
+            this.onlineRoom = null;
+            this.onlineIsHost = false;
+            this.renderInsideRoomUI();
+            this.updateSelectUI();
+            break;
+          }
+
+          case "match_started": {
+            this.onlineRoom = msg.room;
+            this.onlineMySlot = msg.mySlot || 1;
+            this.onlineIsHost = !!msg.isHost;
+            this.startOnlineMatchFromRoom(this.onlineRoom);
+            break;
+          }
+
+          case "returned_to_room": {
+            this.onlineRoom = msg.room;
+            this.onlineMySlot = msg.mySlot || 1;
+            this.onlineIsHost = !!msg.isHost;
+            this.scene = "select";
+            this.selectOverlay.classList.remove("hidden");
+            this.renderInsideRoomUI();
+            this.updateSelectUI();
+            break;
+          }
+
+          case "player_left_match": {
+            const leaverSlot = msg.slot;
+            const f = this.allFighters[leaverSlot - 1];
+            if (f && this.activeFighters.includes(f)) {
+              f.isCOM = true;
+              f.isRemote = false;
+              f.comDiffLabel = "普通";
+              f.customNickname = `${msg.leaverName || leaverSlot + "P"}(COM接手)`;
+              f.setCharacter(f.charDef);
+            }
+            if (msg.newHostSlot === this.onlineMySlot) {
+              this.onlineIsHost = true;
+            }
+            break;
+          }
+
+          case "remote_player_input": {
+            if (this.onlineIsHost && msg.slot >= 1 && msg.slot <= 4) {
+              this.remoteInputs[msg.slot].applyNetworkPacket(msg.held, msg.pressed);
+            }
+            break;
+          }
+
+          case "game_state": {
+            if (this.playMode === "online" && !this.onlineIsHost && msg.state) {
+              this.applyOnlineState(msg.state);
+            }
+            break;
+          }
+
+          case "game_event": {
+            if (this.playMode === "online" && !this.onlineIsHost && msg.event) {
+              this.applyOnlineEvent(msg.event);
+            }
+            break;
+          }
+        }
+      }
+
+      renderPublicRoomList() {
+        if (!this.onlineRoomList) return;
+        this.onlineRoomList.innerHTML = "";
+        if (!this.publicRooms || this.publicRooms.length === 0) {
+          this.onlineRoomList.innerHTML = `<span style="color:#9a8cb0;">目前尚無公開房間，請在上方輸入房號 ID 開啟第一個對戰房！</span>`;
+          return;
+        }
+
+        for (const r of this.publicRooms) {
+          const chip = document.createElement("div");
+          chip.className = "room-item-chip";
+          const mapName = MAP_TEMPLATES[r.mapIndex]?.name || "洛陽城門";
+          const statusBadge = r.status === "waiting"
+            ? `<span style="color:#80ed99; font-weight:800;">🟢 等待中 (${r.playerCount}/${r.maxPlayers}人)</span>`
+            : `<span style="color:#ff758f; font-weight:800;">⚔️ 激戰中 (${r.playerCount}/${r.maxPlayers}人)</span>`;
+          chip.innerHTML = `
+            <span style="color:#ffd166; font-weight:900;">【房號: ${r.roomId}】</span>
+            <span style="color:#e2daec;">房主: ${r.hostName}</span>
+            <span style="color:#b8acc7;">🏯 ${mapName}</span>
+            ${statusBadge}
+            <button type="button" class="online-btn primary" style="padding:2px 7px;">加入</button>
+          `;
+          chip.addEventListener("click", () => {
+            if (!this.wsConnected) {
+              this.connectWebSocket();
+              return;
+            }
+            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
+            this.sendWs({
+              type: "join_room",
+              roomId: r.roomId,
+              name,
+              charIndex: this.p1Index
+            });
+          });
+          this.onlineRoomList.appendChild(chip);
+        }
+      }
+
+      renderInsideRoomUI() {
+        if (!this.onlineLobbyBrowser || !this.onlineRoomInside) return;
+        if (!this.onlineRoom) {
+          this.onlineLobbyBrowser.style.display = "block";
+          this.onlineRoomInside.style.display = "none";
+          return;
+        }
+
+        this.onlineLobbyBrowser.style.display = "none";
+        this.onlineRoomInside.style.display = "flex";
+        if (this.activeRoomTitle) {
+          this.activeRoomTitle.textContent = `🏠 對戰房 ID：【${this.onlineRoom.roomId}】 (${this.onlineRoom.playerCount}/4 人) — 你是 ${this.onlineMySlot}P${this.onlineIsHost ? " (房主)" : ""}`;
+        }
+
+        const btnAddCom = document.getElementById("btnAddRoomCom");
+        const btnRemCom = document.getElementById("btnRemoveRoomCom");
+        if (btnAddCom) btnAddCom.style.display = this.onlineIsHost ? "inline-block" : "none";
+        if (btnRemCom) btnRemCom.style.display = this.onlineIsHost ? "inline-block" : "none";
+
+        if (this.roomSlotsBar) {
+          this.roomSlotsBar.innerHTML = "";
+          for (let s = 1; s <= 4; s++) {
+            const p = this.onlineRoom.players.find((pl) => pl.slot === s);
+            const slotEl = document.createElement("div");
+            if (p) {
+              const charDef = CHARACTER_ROSTER[p.charIndex] || CHARACTER_ROSTER[0];
+              slotEl.className = `room-slot-card filled slot-${s}`;
+              slotEl.innerHTML = `
+                <div style="display:flex; align-items:center; gap:5px; min-width:0;">
+                  <span class="badge p${s}">${s}P${p.isHost ? "房主" : ""}</span>
+                  <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</span>
+                </div>
+                <span style="color:#ffd166; font-weight:700; white-space:nowrap;">【${charDef.name}】</span>
+              `;
+            } else {
+              slotEl.className = `room-slot-card slot-${s}`;
+              slotEl.innerHTML = `
+                <span style="color:#7c6f94;">${s}P 空位 (等待玩家加入或房主+COM)</span>
+              `;
+            }
+            this.roomSlotsBar.appendChild(slotEl);
+          }
+        }
+      }
+
+      setupUIEvents() {
+        if (this.isMobile && this.btnModePvp) {
+          this.btnModePvp.style.display = "none";
+        } else if (this.btnModePvp) {
+          this.btnModePvp.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("pvp"); });
+        }
+        if (this.btnModeCom) {
+          this.btnModeCom.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("com"); });
+        }
+        if (this.btnModeOnline) {
+          this.btnModeOnline.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("online"); });
+        }
+
+        // 單機大亂鬥人數切換 (2人 / 3人 / 4人)
+        if (this.brawlCountGroup) {
+          const countBtns = this.brawlCountGroup.querySelectorAll(".count-btn");
+          countBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+              btn.blur();
+              countBtns.forEach((b) => b.classList.remove("active"));
+              btn.classList.add("active");
+              this.brawlCount = Number(btn.dataset.count) || 2;
+              this.updateSelectUI();
+            });
+          });
+        }
+
+        const diffBtns = this.diffSwitchGroup.querySelectorAll(".diff-btn");
+        diffBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            btn.blur();
+            diffBtns.forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            this.comDifficulty = btn.dataset.diff;
+            this.comAI.setDifficulty(this.comDifficulty);
+            for (let i = 1; i <= 4; i++) this.comAIs[i].setDifficulty(this.comDifficulty);
+            this.p2.comDiffLabel = COM_DIFFICULTIES[this.comDifficulty].label;
+            this.updateSelectUI();
+          });
+        });
+
+        // 連線大廳按鈕事件
+        const btnConnectWs = document.getElementById("btnConnectWs");
+        if (btnConnectWs) {
+          btnConnectWs.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            this.connectWebSocket();
+          });
+        }
+
+        const btnCreateRoom = document.getElementById("btnCreateRoom");
+        if (btnCreateRoom) {
+          btnCreateRoom.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            if (!this.wsConnected) {
+              this.connectWebSocket();
+              this.selectGuideText.textContent = "⏳ 正在連線伺服器，請確認已執行 node server.js 後再點一次開啟對戰房！";
+              return;
+            }
+            const roomId = (this.onlineRoomIdInput?.value || "").trim() || String(Math.floor(1000 + Math.random() * 9000));
+            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
+            if (this.onlineRoomIdInput) this.onlineRoomIdInput.value = roomId;
+            this.sendWs({
+              type: "create_room",
+              roomId,
+              name,
+              charIndex: this.p1Index,
+              mapIndex: this.mapIndex
+            });
+          });
+        }
+
+        const btnJoinRoomById = document.getElementById("btnJoinRoomById");
+        if (btnJoinRoomById) {
+          btnJoinRoomById.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            if (!this.wsConnected) {
+              this.connectWebSocket();
+              return;
+            }
+            const roomId = (this.onlineRoomIdInput?.value || "").trim();
+            if (!roomId) {
+              this.selectGuideText.textContent = "⚠️ 請先輸入要加入的房號 ID，或直接點選下方公開房間列表！";
+              return;
+            }
+            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
+            this.sendWs({
+              type: "join_room",
+              roomId,
+              name,
+              charIndex: this.p1Index
+            });
+          });
+        }
+
+        const btnAddRoomCom = document.getElementById("btnAddRoomCom");
+        if (btnAddRoomCom) {
+          btnAddRoomCom.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            this.sendWs({
+              type: "add_room_com",
+              comDiff: this.comDifficulty
+            });
+          });
+        }
+
+        const btnRemoveRoomCom = document.getElementById("btnRemoveRoomCom");
+        if (btnRemoveRoomCom) {
+          btnRemoveRoomCom.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            this.sendWs({ type: "remove_room_com" });
+          });
+        }
+
+        const btnLeaveRoom = document.getElementById("btnLeaveRoom");
+        if (btnLeaveRoom) {
+          btnLeaveRoom.addEventListener("click", (e) => {
+            e.currentTarget.blur();
+            this.sendWs({ type: "leave_room" });
+          });
+        }
+
+        this.btnStartMatch.addEventListener("click", (e) => {
+          e.currentTarget.blur();
+          if (this.scene !== "select") return;
+          if (this.playMode === "online") {
+            if (!this.onlineRoom) {
+              this.selectGuideText.textContent = "⚠️ 請先輸入房號 ID 開啟對戰房，或從列表加入房間！";
+              return;
+            }
+            if (!this.onlineIsHost) {
+              this.selectGuideText.textContent = "⏳ 只有 1P 房主可以按下開戰，請等待房主開戰！";
+              return;
+            }
+            this.sendWs({ type: "start_online_match" });
+          } else {
+            this.startMatch();
+          }
+        });
+
+        document.getElementById("btnTopSelect").addEventListener("click", (e) => {
+          e.currentTarget.blur();
+          if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
+            this.sendWs({ type: "return_to_room" });
+          } else {
+            this.returnToSelect();
+          }
+        });
+        document.getElementById("btnTopReset").addEventListener("click", (e) => {
+          e.currentTarget.blur();
+          if (this.scene === "fight") {
+            if (this.playMode === "online") {
+              if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+            } else {
+              this.startMatch();
+            }
+          }
+        });
+        document.getElementById("btnTopBox").addEventListener("click", (e) => {
+          e.currentTarget.blur();
+          this.showBoxes = !this.showBoxes;
+        });
+
+        // 在總冠軍勝利畫面點擊 Canvas 可直接開啟下一場對戰
+        this.canvas.addEventListener("pointerdown", () => {
+          if (this.scene === "fight" && this.matchWinner && this.victoryTime > 1.1) {
+            if (this.playMode === "online") {
+              if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+            } else {
+              this.startMatch();
+            }
+          }
+        });
+      }
+
+      setComMode(isCom) {
+        this.setPlayMode(isCom ? "com" : "pvp");
+      }
+
+      setPlayMode(mode) {
+        if (this.isMobile && mode === "pvp") mode = "com";
+        this.playMode = mode;
+        this.isComMode = (mode === "com");
+        this.p1Locked = false;
+        this.p2Locked = false;
+        this.selectStep = 1;
+
+        if (this.btnModeCom) this.btnModeCom.classList.toggle("active", mode === "com");
+        if (this.btnModePvp) this.btnModePvp.classList.toggle("active", mode === "pvp");
+        if (this.btnModeOnline) this.btnModeOnline.classList.toggle("active", mode === "online");
+
+        if (this.brawlCountGroup) this.brawlCountGroup.style.display = mode === "com" ? "flex" : "none";
+        if (this.diffSwitchGroup) this.diffSwitchGroup.style.display = (mode === "com" || mode === "online") ? "flex" : "none";
+        if (this.onlineLobbyPanel) this.onlineLobbyPanel.classList.toggle("active", mode === "online");
+
+        const p2KeyBox = document.getElementById("p2KeyBox");
+        if (p2KeyBox) p2KeyBox.style.display = mode === "pvp" ? "block" : "none";
+
+        if (mode === "online") {
+          if (!this.wsConnected) this.connectWebSocket();
+          this.renderInsideRoomUI();
+          this.selectGuideText.textContent = "🌐 連線對戰房 (支援 2～4 人同場大亂鬥)：輸入 ID 開啟房間，其他人即可在列表看到並點擊加入！";
+        } else if (mode === "com") {
+          this.selectGuideText.textContent = "三戰兩勝制 (60秒/局)：支援 2～4 人同場大亂鬥！點選角色與人數後按「立即開戰」！";
+        } else {
+          this.selectGuideText.textContent = "三戰兩勝制 (60秒/局)：1P WASD / F 鎖定 ｜ 2P 方向鍵 / 逗號(,) 鎖定，或按「立即開戰」";
+        }
+        this.updateSelectUI();
+      }
+
+      buildSelectUI() {
+        this.rosterGrid.innerHTML = "";
+        this.cardEls = CHARACTER_ROSTER.map((char, idx) => {
+          const card = document.createElement("div");
+          card.className = "char-card";
+          card.innerHTML = `
+            <img class="char-thumb" src="${char.photo}" alt="${char.name}" />
+            <div class="char-info">
+              <div class="char-name">${char.name}</div>
+              <div class="char-title">${char.title} (HP ${char.maxHp})</div>
+              <div class="char-moves">${char.lightDesc}<br><span style="color:#ffd166;">${char.heavyDesc}</span></div>
+            </div>
+            <div class="cursor-badges"></div>
+          `;
+
+          card.addEventListener("click", () => {
+            if (this.scene !== "select") return;
+            if (this.playMode === "online") {
+              this.p1Index = idx;
+              if (this.onlineRoom) {
+                this.sendWs({ type: "update_room_player", charIndex: idx });
+              }
+              this.updateSelectUI();
+              return;
+            }
+            if (this.selectStep === 1) {
+              this.p1Index = idx;
+              this.p1Locked = true;
+              this.selectStep = 2;
+            } else {
+              this.p2Index = idx;
+              this.p2Locked = true;
+              this.selectStep = 1;
+            }
+            this.updateSelectUI();
+          });
+
+          card.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            if (this.scene !== "select") return;
+            this.p2Index = idx;
+            this.p2Locked = true;
+            this.updateSelectUI();
+          });
+
+          this.rosterGrid.appendChild(card);
+          return card;
+        });
+      }
+
+      buildMapUI() {
+        this.mapOptions.innerHTML = "";
+        this.mapChipEls = MAP_TEMPLATES.map((map, idx) => {
+          const chip = document.createElement("div");
+          chip.className = `map-chip ${idx === this.mapIndex ? "active" : ""}`;
+          chip.innerHTML = map.preview ? `<img src="${map.preview}" alt="${map.name}" /><span>${map.name}</span>` : `<span>🏯 ${map.name}</span>`;
+          chip.addEventListener("click", () => {
+            this.mapIndex = idx; this.currentMap = MAP_TEMPLATES[idx];
+            this.mapChipEls.forEach((c, i) => c.classList.toggle("active", i === idx));
+            if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
+              this.sendWs({ type: "update_room_settings", mapIndex: idx });
+            }
+          });
+          this.mapOptions.appendChild(chip);
+          return chip;
+        });
+      }
+
+      updateSelectUI() {
+        if (this.playMode === "online" && this.onlineRoom) {
+          this.cardEls.forEach((card, idx) => {
+            const myPlayer = this.onlineRoom.players.find((p) => p.slot === this.onlineMySlot);
+            card.classList.toggle("p1-cursor", myPlayer ? myPlayer.charIndex === idx : this.p1Index === idx);
+            card.classList.remove("p2-cursor");
+            const badges = card.querySelector(".cursor-badges");
+            badges.innerHTML = "";
+            for (const p of this.onlineRoom.players) {
+              if (p.charIndex === idx) {
+                const b = document.createElement("span");
+                b.className = `badge p${p.slot}`;
+                b.textContent = `${p.slot}P`;
+                badges.appendChild(b);
+              }
+            }
+          });
+          const count = this.onlineRoom.players.length;
+          this.p1StatusEl.textContent = `🏠 房號【${this.onlineRoom.roomId}】(${count}人參戰)`;
+          if (this.onlineIsHost) {
+            this.btnStartMatch.textContent = `🔥 房主開戰 START! (${count}人大亂鬥)`;
+            this.p2StatusEl.textContent = count >= 2 ? "人數已達標，可隨時開戰！" : "請等待第 2 人加入或點【+加入COM】";
+          } else {
+            this.btnStartMatch.textContent = `⏳ 等待 1P 房主開戰...`;
+            this.p2StatusEl.textContent = `你是 ${this.onlineMySlot}P，點選卡片可換角`;
+          }
+          return;
+        }
+
+        this.btnStartMatch.textContent = this.playMode === "com" && this.brawlCount > 2
+          ? `立即開戰 START! (${this.brawlCount}人大亂鬥)`
+          : "立即開戰 START!";
+
+        this.cardEls.forEach((card, idx) => {
+          card.classList.toggle("p1-cursor", idx === this.p1Index);
+          card.classList.toggle("p2-cursor", idx === this.p2Index);
+          const badges = card.querySelector(".cursor-badges");
+          badges.innerHTML = "";
+          if (idx === this.p1Index) {
+            const b1 = document.createElement("span");
+            b1.className = `badge p1 ${this.p1Locked ? "locked" : ""}`;
+            b1.textContent = "1P";
+            badges.appendChild(b1);
+          }
+          if (idx === this.p2Index) {
+            const b2 = document.createElement("span");
+            const label = this.isComMode ? `COM(${COM_DIFFICULTIES[this.comDifficulty].label})` : "2P";
+            b2.className = `badge ${this.isComMode ? "com" : "p2"} ${this.p2Locked ? "locked" : ""}`;
+            b2.textContent = label;
+            badges.appendChild(b2);
+          }
+          if (this.isComMode && this.brawlCount >= 3 && idx === ((this.p2Index + 1) % CHARACTER_ROSTER.length)) {
+            const b3 = document.createElement("span");
+            b3.className = "badge p3";
+            b3.textContent = "3P COM";
+            badges.appendChild(b3);
+          }
+          if (this.isComMode && this.brawlCount >= 4 && idx === ((this.p2Index + 2) % CHARACTER_ROSTER.length)) {
+            const b4 = document.createElement("span");
+            b4.className = "badge p4";
+            b4.textContent = "4P COM";
+            badges.appendChild(b4);
+          }
+        });
+
+        const c1 = CHARACTER_ROSTER[this.p1Index];
+        const c2 = CHARACTER_ROSTER[this.p2Index];
+        this.p1StatusEl.textContent = `1P：【${c1.name}】`;
+        if (this.isComMode) {
+          this.p2StatusEl.textContent = this.brawlCount > 2
+            ? `COM (${COM_DIFFICULTIES[this.comDifficulty].label}) × ${this.brawlCount - 1} 人同場亂鬥`
+            : `COM (${COM_DIFFICULTIES[this.comDifficulty].label})：【${c2.name}】`;
+        } else {
+          this.p2StatusEl.textContent = `2P：【${c2.name}】`;
+        }
+      }
+
+      configureSpawnPositions(fighters) {
+        const topY = this.currentMap.arenaTopY;
+        const botY = this.currentMap.arenaBottomY;
+        const midY = (topY + botY) / 2;
+        const count = fighters.length;
+
+        if (count <= 2) {
+          fighters[0].spawnX = 200;
+          fighters[0].spawnY = midY;
+          fighters[0].spawnFacing = 1;
+          if (fighters[1]) {
+            fighters[1].spawnX = CONFIG.canvasWidth - 200 - CONFIG.playerWidth;
+            fighters[1].spawnY = midY;
+            fighters[1].spawnFacing = -1;
+          }
+        } else if (count === 3) {
+          fighters[0].spawnX = 150; fighters[0].spawnY = topY + 42; fighters[0].spawnFacing = 1;
+          fighters[1].spawnX = CONFIG.canvasWidth - 150 - CONFIG.playerWidth; fighters[1].spawnY = topY + 42; fighters[1].spawnFacing = -1;
+          fighters[2].spawnX = (CONFIG.canvasWidth - CONFIG.playerWidth) / 2; fighters[2].spawnY = botY - 22; fighters[2].spawnFacing = 1;
+        } else {
+          fighters[0].spawnX = 145; fighters[0].spawnY = topY + 38; fighters[0].spawnFacing = 1;
+          fighters[1].spawnX = CONFIG.canvasWidth - 145 - CONFIG.playerWidth; fighters[1].spawnY = topY + 38; fighters[1].spawnFacing = -1;
+          fighters[2].spawnX = 240; fighters[2].spawnY = botY - 22; fighters[2].spawnFacing = 1;
+          fighters[3].spawnX = CONFIG.canvasWidth - 240 - CONFIG.playerWidth; fighters[3].spawnY = botY - 22; fighters[3].spawnFacing = -1;
+        }
+      }
+
+      startOnlineMatchFromRoom(room) {
+        this.playMode = "online";
+        this.mapIndex = Number.isInteger(room.mapIndex) ? room.mapIndex : 0;
+        this.currentMap = MAP_TEMPLATES[this.mapIndex] || MAP_TEMPLATES[0];
+
+        this.activeFighters = [];
+        for (const pInfo of room.players) {
+          const slot = pInfo.slot;
+          const f = this.allFighters[slot - 1];
+          if (!f) continue;
+          f.isCOM = !!pInfo.isCOM;
+          f.isRemote = !pInfo.isCOM && slot !== this.onlineMySlot;
+          f.comDiffLabel = COM_DIFFICULTIES[pInfo.comDiff || "normal"]?.label || "普通";
+          f.customNickname = pInfo.name || `${slot}P`;
+          if (slot === 1) {
+            f.controls = {
+              up: ["KeyW", "ArrowUp"],
+              left: ["KeyA", "ArrowLeft"],
+              down: ["KeyS", "ArrowDown"],
+              right: ["KeyD", "ArrowRight"],
+              jump: ["Space", "Enter"],
+              light: ["KeyF", "Comma"],
+              heavy: ["KeyG", "Period"],
+              dash: ["KeyH", "Slash"],
+              ult: ["KeyJ", "Semicolon", "KeyM"]
+            };
+          } else {
+            f.controls = CANONICAL_NET_CONTROLS;
+          }
+          this.comAIs[slot].setDifficulty(pInfo.comDiff || "normal");
+          f.setCharacter(CHARACTER_ROSTER[pInfo.charIndex] || CHARACTER_ROSTER[0]);
+          f.wins = 0;
+          this.activeFighters.push(f);
+        }
+
+        this.configureSpawnPositions(this.activeFighters);
+        this.roundNumber = 1;
+        this.p1Wins = 0;
+        this.p2Wins = 0;
+        this.matchWinner = null;
+        this.championFighter = null;
+        this.victoryTime = 0;
+        this.victoryConfetti = [];
+        this.resetRound(false);
+        this.scene = "fight";
+        this.selectOverlay.classList.add("hidden");
+      }
+
+      startMatch() {
+        this.currentMap = MAP_TEMPLATES[this.mapIndex];
+        const diffLabel = COM_DIFFICULTIES[this.comDifficulty].label;
+        this.comAI.setDifficulty(this.comDifficulty);
+        for (let i = 1; i <= 4; i++) this.comAIs[i].setDifficulty(this.comDifficulty);
+
+        this.p1.isCOM = false;
+        this.p1.isRemote = false;
+        this.p1.customNickname = "";
+        this.p1.controls = { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyJ" };
+        this.p1.setCharacter(CHARACTER_ROSTER[this.p1Index]);
+        this.p1.wins = 0;
+
+        this.p2.isCOM = this.isComMode;
+        this.p2.isRemote = false;
+        this.p2.customNickname = "";
+        this.p2.comDiffLabel = diffLabel;
+        this.p2.controls = { up: "ArrowUp", left: "ArrowLeft", down: "ArrowDown", right: "ArrowRight", jump: ["ShiftRight", "Enter"], light: "Comma", heavy: "Period", dash: "Slash", ult: ["Semicolon", "KeyM"] };
+        this.p2.setCharacter(CHARACTER_ROSTER[this.p2Index]);
+        this.p2.wins = 0;
+
+        this.activeFighters = [this.p1, this.p2];
+
+        if (this.isComMode && this.brawlCount >= 3) {
+          const c3Idx = (this.p2Index + 1) % CHARACTER_ROSTER.length;
+          if (c3Idx === this.p1Index) this.p3Index = (c3Idx + 1) % CHARACTER_ROSTER.length;
+          else this.p3Index = c3Idx;
+          this.p3.isCOM = true;
+          this.p3.isRemote = false;
+          this.p3.customNickname = "";
+          this.p3.comDiffLabel = diffLabel;
+          this.p3.controls = CANONICAL_NET_CONTROLS;
+          this.p3.setCharacter(CHARACTER_ROSTER[this.p3Index]);
+          this.p3.wins = 0;
+          this.activeFighters.push(this.p3);
+        }
+
+        if (this.isComMode && this.brawlCount >= 4) {
+          const c4Idx = (this.p3Index + 1) % CHARACTER_ROSTER.length;
+          this.p4Index = c4Idx === this.p1Index ? (c4Idx + 1) % CHARACTER_ROSTER.length : c4Idx;
+          this.p4.isCOM = true;
+          this.p4.isRemote = false;
+          this.p4.customNickname = "";
+          this.p4.comDiffLabel = diffLabel;
+          this.p4.controls = CANONICAL_NET_CONTROLS;
+          this.p4.setCharacter(CHARACTER_ROSTER[this.p4Index]);
+          this.p4.wins = 0;
+          this.activeFighters.push(this.p4);
+        }
+
+        this.configureSpawnPositions(this.activeFighters);
+
+        // 重置三戰兩勝比數
+        this.roundNumber = 1;
+        this.p1Wins = 0;
+        this.p2Wins = 0;
+        this.matchWinner = null;
+        this.championFighter = null;
+        this.victoryTime = 0;
+        this.victoryConfetti = [];
+        this.resetRound(false);
+        this.scene = "fight";
+        this.selectOverlay.classList.add("hidden");
+      }
+
+      returnToSelect() {
+        this.scene = "select";
+        this.p1Locked = false;
+        this.p2Locked = false;
+        this.selectStep = 1;
+        this.selectOverlay.classList.remove("hidden");
+        this.updateSelectUI();
+      }
+
+      updateSelectInput() {
+        if (this.playMode === "online") return;
+        if (!this.isMobile && this.input.wasPressed("Tab")) {
+          this.setComMode(!this.isComMode);
+          return;
+        }
+
+        const total = CHARACTER_ROSTER.length;
+        const cols = 3;
+        let changed = false;
+
+        if (this.isComMode) {
+          if (this.selectStep === 1) {
+            if (this.input.wasPressed("KeyD")) { this.p1Index = (this.p1Index + 1) % total; changed = true; }
+            if (this.input.wasPressed("KeyA")) { this.p1Index = (this.p1Index - 1 + total) % total; changed = true; }
+            if (this.input.wasPressed("KeyS")) { this.p1Index = (this.p1Index + cols) % total; changed = true; }
+            if (this.input.wasPressed("KeyW")) { this.p1Index = (this.p1Index - cols + total) % total; changed = true; }
+            if (this.input.wasPressed(["KeyF", "Space"])) { this.p1Locked = true; this.selectStep = 2; changed = true; }
+          } else {
+            if (this.input.wasPressed(["KeyD", "ArrowRight"])) { this.p2Index = (this.p2Index + 1) % total; changed = true; }
+            if (this.input.wasPressed(["KeyA", "ArrowLeft"])) { this.p2Index = (this.p2Index - 1 + total) % total; changed = true; }
+            if (this.input.wasPressed(["KeyS", "ArrowDown"])) { this.p2Index = (this.p2Index + cols) % total; changed = true; }
+            if (this.input.wasPressed(["KeyW", "ArrowUp"])) { this.p2Index = (this.p2Index - cols + total) % total; changed = true; }
+            if (this.input.wasPressed(["KeyF", "Space", "Comma", "Enter"])) {
+              this.startMatch();
+              return;
+            }
+          }
+        } else {
+          if (!this.p1Locked) {
+            if (this.input.wasPressed("KeyD")) { this.p1Index = (this.p1Index + 1) % total; changed = true; }
+            if (this.input.wasPressed("KeyA")) { this.p1Index = (this.p1Index - 1 + total) % total; changed = true; }
+            if (this.input.wasPressed("KeyS")) { this.p1Index = (this.p1Index + cols) % total; changed = true; }
+            if (this.input.wasPressed("KeyW")) { this.p1Index = (this.p1Index - cols + total) % total; changed = true; }
+          }
+          if (this.input.wasPressed(["KeyF", "Space"])) { this.p1Locked = !this.p1Locked; changed = true; }
+          if (!this.p2Locked) {
+            if (this.input.wasPressed("ArrowRight")) { this.p2Index = (this.p2Index + 1) % total; changed = true; }
+            if (this.input.wasPressed("ArrowLeft")) { this.p2Index = (this.p2Index - 1 + total) % total; changed = true; }
+            if (this.input.wasPressed("ArrowDown")) { this.p2Index = (this.p2Index + cols) % total; changed = true; }
+            if (this.input.wasPressed("ArrowUp")) { this.p2Index = (this.p2Index - cols + total) % total; changed = true; }
+          }
+          if (this.input.wasPressed(["Comma", "Enter"])) { this.p2Locked = !this.p2Locked; changed = true; }
+          if (this.p1Locked && this.p2Locked) {
+            this.startMatch();
+            return;
+          }
+        }
+        if (changed) this.updateSelectUI();
+      }
+
+      resetRound(keepPartialEnergy = true) {
+        for (const f of this.activeFighters) {
+          f.reset(keepPartialEnergy);
+        }
+        this.particles = []; this.afterimages = []; this.projectiles = [];
+        this.starbursts = []; this.floatingTexts = [];
+        this.hitstopTimer = 0; this.shakeTimer = 0;
+        this.roundTimer = CONFIG.roundDuration;
+        this.roundIntroTimer = 1.1;
+        this.roundEndReason = "";
+        this.koWinner = null;
+        this.resetTimer = 0;
+        this.ultBanner = null;
+      }
+
+      spawnHitSparks(x, y, isHeavy) {
+        const count = isHeavy ? 22 : 10; const speed = isHeavy ? 460 : 250;
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const mag = (0.3 + Math.random() * 0.7) * speed;
+          const color = isHeavy ? (i % 2 === 0 ? "#ffcc00" : "#ff5400") : "#ffffff";
+          this.particles.push(new Particle(x, y, Math.cos(angle) * mag, Math.sin(angle) * mag, color, isHeavy ? 7 : 4, isHeavy ? 0.34 : 0.18));
+        }
+      }
+
+      spawnDust(x, y, count) {
+        for (let i = 0; i < count; i++) {
+          this.particles.push(new Particle(x + (Math.random() - 0.5) * 24, y, (Math.random() - 0.5) * 130, -Math.random() * 60, "rgba(215, 200, 180, 0.7)", 5, 0.24));
+        }
+      }
+
+      rectsOverlap(a, b) { return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
+
+      applyHitEffects(attacker, defender, attackData, facing, hitX, hitY) {
+        const rageMult = this.isRageTime() ? CONFIG.rageDamageMult : 1.0;
+        const scaledDmg = Math.round((attackData.damage || 5) * rageMult);
+        const actualDmg = defender.takeHit(attackData, facing, scaledDmg);
+
+        // 攻擊方獲得集氣 (必殺技與其衍生飛行道具期間不重複回氣)
+        if (attackData.name !== "ult" && attackData.name !== "ult_proj") {
+          const energyGain = attackData.multiHitInterval ? CONFIG.hitEnergyGain * 0.45 : CONFIG.hitEnergyGain;
+          attacker.addEnergy(energyGain * (this.isRageTime() ? 1.5 : 1.0));
+        }
+
+        this.hitstopTimer = Math.max(this.hitstopTimer, attackData.hitstop || 0.04);
+        const isUlt = attackData.name === "ult" || attackData.name === "ult_proj";
+        const isHeavyOrUlt = attackData.name === "heavy" || isUlt;
+        if (isHeavyOrUlt) {
+          this.shakeTimer = isUlt ? 0.36 : CONFIG.heavyShakeDuration;
+          this.shakeIntensity = isUlt ? 16 : CONFIG.heavyShakeIntensity;
+        }
+        this.spawnHitSparks(hitX, hitY, isHeavyOrUlt);
+        this.starbursts.push(new HitStarburst(hitX, hitY, isHeavyOrUlt));
+        const tag = isUlt ? " 必殺!!" : (isHeavyOrUlt ? "!" : "");
+        const color = isUlt ? "#ff0054" : (isHeavyOrUlt ? "#ffbe0b" : "#ffffff");
+        const scale = isUlt ? 1.55 : (isHeavyOrUlt ? 1.35 : 1.0);
+        const dmgText = `-${actualDmg}${tag}`;
+        this.floatingTexts.push(new FloatingText(hitX, hitY - 18, dmgText, color, scale));
+
+        if (this.playMode === "online" && this.onlineIsHost) {
+          this.sendWs({
+            type: "game_event",
+            event: {
+              kind: "hit",
+              hitX: Math.round(hitX),
+              hitY: Math.round(hitY),
+              isHeavyOrUlt,
+              isUlt,
+              dmgText,
+              color,
+              scale
+            }
+          });
+        }
+      }
+
+      checkCombatHits() {
+        // 支援 2～4 人同場大亂鬥：所有存活角色可互相攻擊判定
+        for (let i = 0; i < this.activeFighters.length; i++) {
+          for (let j = 0; j < this.activeFighters.length; j++) {
+            if (i === j) continue;
+            this.resolveMeleeHit(this.activeFighters[i], this.activeFighters[j]);
+          }
+        }
+
+        for (const proj of this.projectiles) {
+          if (!proj.active) continue;
+          for (const defender of this.activeFighters) {
+            if (defender === proj.owner) continue;
+            if (defender.state === "ko" || defender.invulnTimer > 0 || proj.hitTargets.has(defender)) continue;
+            const hb = proj.getHitbox(); const hurtbox = defender.getHurtbox();
+            if (Math.abs(hb.groundY - hurtbox.groundY) <= hb.depthTolerance && this.rectsOverlap(hb, hurtbox)) {
+              if (proj.projType === "boomerang") proj.hitTargets.add(defender);
+              else proj.active = false;
+              const hitX = proj.facing === 1 ? hurtbox.x + 8 : hurtbox.x + hurtbox.width - 8;
+              this.applyHitEffects(proj.owner, defender, proj.attackData, proj.facing, hitX, hb.y + hb.height / 2);
+              if (!proj.active) break;
+            }
+          }
+        }
+      }
+
+      resolveMeleeHit(attacker, defender) {
+        if (attacker.hitTargetsThisSwing.has(defender) || defender.state === "ko" || defender.invulnTimer > 0) return;
+        const hitbox = attacker.getActiveHitbox();
+        if (!hitbox) return;
+        const hurtbox = defender.getHurtbox();
+        if (Math.abs(hitbox.groundY - hurtbox.groundY) <= hitbox.depthTolerance && this.rectsOverlap(hitbox, hurtbox)) {
+          attacker.hasHitThisSwing = true;
+          attacker.hitTargetsThisSwing.add(defender);
+          const pushDir = (defender.x + defender.width / 2 >= attacker.x + attacker.width / 2) ? 1 : -1;
+          const hitX = pushDir === 1 ? hurtbox.x + 8 : hurtbox.x + hurtbox.width - 8;
+          this.applyHitEffects(attacker, defender, attacker.currentAttack, attacker.currentAttack.centeredHitbox ? pushDir : attacker.facing, hitX, hitbox.y + hitbox.height / 2);
+        }
+      }
+
+      initVictoryCelebration(winnerPlayer) {
+        this.championFighter = winnerPlayer;
+        this.victoryTime = 0;
+        this.fireworkTimer = 0.55; // 先讓 K.O. 擊飛畫面展示 0.55 秒，再切入總冠軍原圖特寫與煙火
+        this.victoryConfetti = [];
+        const colors = ["#ffd166", "#ffbe0b", "#ff4d6d", "#00f5d4", "#ff758f", "#9b5de5", "#ffffff"];
+        for (let i = 0; i < 80; i++) {
+          this.victoryConfetti.push({
+            x: Math.random() * CONFIG.canvasWidth,
+            y: -20 - Math.random() * CONFIG.canvasHeight,
+            vx: (Math.random() - 0.5) * 90,
+            vy: 95 + Math.random() * 145,
+            w: 7 + Math.random() * 9,
+            h: 4 + Math.random() * 6,
+            color: colors[i % colors.length],
+            rot: Math.random() * Math.PI * 2,
+            vRot: (Math.random() - 0.5) * 9,
+            swayPhase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      spawnVictoryFirework() {
+        const fx = 110 + Math.random() * (CONFIG.canvasWidth - 220);
+        const fy = 75 + Math.random() * 210;
+        const palette = ["#ffd166", "#ff4d6d", "#00f5d4", "#ffbe0b", "#c77dff", "#ff758f"];
+        const mainColor = palette[Math.floor(Math.random() * palette.length)];
+        this.starbursts.push(new HitStarburst(fx, fy, true));
+        for (let i = 0; i < 24; i++) {
+          const ang = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.15;
+          const spd = 120 + Math.random() * 220;
+          const col = i % 2 === 0 ? mainColor : "#ffffff";
+          this.particles.push(new Particle(fx, fy, Math.cos(ang) * spd, Math.sin(ang) * spd, col, 5, 0.55 + Math.random() * 0.25));
+        }
+      }
+
+      concludeRound(winnerFighter, reasonText) {
+        this.roundEndReason = reasonText;
+
+        if (!winnerFighter || winnerFighter === "DRAW") {
+          this.koWinner = "DRAW";
+          const anyAtMatchPoint = this.activeFighters.some((f) => f.wins + 1 >= CONFIG.winsToMatch);
+          if (!anyAtMatchPoint) {
+            for (const f of this.activeFighters) {
+              f.wins = Math.min(CONFIG.winsToMatch - 1, f.wins + 1);
+            }
+          }
+        } else {
+          const winFighter = typeof winnerFighter === "object"
+            ? winnerFighter
+            : (winnerFighter === "1P" ? this.p1 : this.p2);
+          winFighter.wins++;
+          this.koWinner = winFighter.customNickname
+            ? `${winFighter.id}P ${winFighter.customNickname}`
+            : (winFighter.isCOM && this.activeFighters.length === 2 ? "COM" : `${winFighter.id}P`);
+        }
+
+        this.p1Wins = this.p1.wins;
+        this.p2Wins = this.p2.wins;
+
+        const matchChamp = this.activeFighters.find((f) => f.wins >= CONFIG.winsToMatch);
+        if (matchChamp) {
+          this.matchWinner = matchChamp.name;
+          this.resetTimer = CONFIG.matchOverDelay;
+          this.initVictoryCelebration(matchChamp);
+        } else {
+          this.matchWinner = null;
+          this.resetTimer = CONFIG.roundTransitionDelay;
+        }
+      }
+
+      // =======================================================================
+      // 🌐 連線狀態打包與同步 (Host 權威狀態同步 + Client 按鍵轉發)
+      // =======================================================================
+      sendClientInputToHost() {
+        if (this.playMode !== "online" || this.onlineIsHost || !this.wsConnected) return;
+        const held = [];
+        const pressed = [];
+        if (this.input.isHeld(["KeyW", "ArrowUp"])) held.push("ACT_UP");
+        if (this.input.isHeld(["KeyS", "ArrowDown"])) held.push("ACT_DOWN");
+        if (this.input.isHeld(["KeyA", "ArrowLeft"])) held.push("ACT_LEFT");
+        if (this.input.isHeld(["KeyD", "ArrowRight"])) held.push("ACT_RIGHT");
+
+        if (this.input.wasPressed(["Space", "Enter", "ShiftRight"])) pressed.push("ACT_JUMP");
+        if (this.input.wasPressed(["KeyF", "Comma"])) pressed.push("ACT_LIGHT");
+        if (this.input.wasPressed(["KeyG", "Period"])) pressed.push("ACT_HEAVY");
+        if (this.input.wasPressed(["KeyH", "Slash"])) pressed.push("ACT_DASH");
+        if (this.input.wasPressed(["KeyJ", "Semicolon", "KeyM"])) pressed.push("ACT_ULT");
+
+        this.sendWs({
+          type: "player_input",
+          held,
+          pressed
+        });
+      }
+
+      serializeOnlineState() {
+        return {
+          rn: this.roundNumber,
+          rt: Number(this.roundTimer.toFixed(2)),
+          ri: Number(this.roundIntroTimer.toFixed(2)),
+          kw: this.koWinner,
+          re: this.roundEndReason,
+          mw: this.matchWinner,
+          cs: this.championFighter ? this.championFighter.id : 0,
+          vt: Number(this.victoryTime.toFixed(2)),
+          rst: Number(this.resetTimer.toFixed(2)),
+          fs: this.activeFighters.map((f) => ({
+            id: f.id,
+            x: Math.round(f.x),
+            y: Math.round(f.y),
+            z: Math.round(f.z),
+            fc: f.facing,
+            hp: f.hp,
+            thp: Math.round(f.trailHp),
+            en: Math.round(f.energy),
+            w: f.wins,
+            st: f.state,
+            stt: Number(f.stateTimer.toFixed(2)),
+            at: Number(f.animTime.toFixed(2)),
+            inv: Number(f.invulnTimer.toFixed(2)),
+            ak: f.currentAttack ? f.currentAttack.name : null,
+            lt: f.lockedTargetPos ? [Math.round(f.lockedTargetPos.x), Math.round(f.lockedTargetPos.y)] : null
+          })),
+          ps: this.projectiles.map((p) => ({
+            x: Math.round(p.x),
+            gy: Math.round(p.groundY),
+            z: Math.round(p.z),
+            fc: p.facing,
+            pt: p.projType,
+            w: p.width,
+            h: p.height,
+            ang: Number(p.angle.toFixed(2))
+          }))
+        };
+      }
+
+      applyOnlineState(s) {
+        this.roundNumber = s.rn ?? this.roundNumber;
+        this.roundTimer = s.rt ?? this.roundTimer;
+        this.roundIntroTimer = s.ri ?? 0;
+        this.koWinner = s.kw || null;
+        this.roundEndReason = s.re || "";
+        this.resetTimer = s.rst ?? 0;
+
+        if (s.mw && !this.matchWinner) {
+          this.matchWinner = s.mw;
+          const champ = this.allFighters[(s.cs || 1) - 1] || this.p1;
+          this.initVictoryCelebration(champ);
+        } else if (!s.mw) {
+          this.matchWinner = null;
+          this.championFighter = null;
+        }
+        if (s.mw) {
+          this.victoryTime = s.vt ?? this.victoryTime;
+        }
+
+        if (Array.isArray(s.fs)) {
+          for (const fd of s.fs) {
+            const f = this.allFighters[fd.id - 1];
+            if (!f) continue;
+            f.x = fd.x;
+            f.y = fd.y;
+            f.z = fd.z;
+            f.facing = fd.fc;
+            f.hp = fd.hp;
+            f.trailHp = fd.thp;
+            f.energy = fd.en;
+            f.wins = fd.w;
+            f.state = fd.st;
+            f.stateTimer = fd.stt;
+            f.animTime = fd.at;
+            f.invulnTimer = fd.inv;
+            f.currentAttack = fd.ak ? f.charDef.attacks[fd.ak] : null;
+            f.lockedTargetPos = fd.lt ? { x: fd.lt[0], y: fd.lt[1] } : null;
+          }
+          this.p1Wins = this.p1.wins;
+          this.p2Wins = this.p2.wins;
+        }
+
+        if (Array.isArray(s.ps)) {
+          this.projectiles = s.ps.map((pd) => {
+            const dummyProj = new Projectile({
+              owner: this.p1,
+              x: pd.x,
+              groundY: pd.gy,
+              z: pd.z,
+              facing: pd.fc,
+              attackData: { projType: pd.pt, width: pd.w, height: pd.h, projSpeed: 0, projLife: 1, offsetZ: 20, depthTolerance: 36 }
+            });
+            dummyProj.angle = pd.ang;
+            return dummyProj;
+          });
+        }
+      }
+
+      applyOnlineEvent(ev) {
+        if (ev.kind === "hit") {
+          this.spawnHitSparks(ev.hitX, ev.hitY, ev.isHeavyOrUlt);
+          this.starbursts.push(new HitStarburst(ev.hitX, ev.hitY, ev.isHeavyOrUlt));
+          this.floatingTexts.push(new FloatingText(ev.hitX, ev.hitY - 18, ev.dmgText, ev.color, ev.scale));
+          if (ev.isHeavyOrUlt) {
+            this.shakeTimer = ev.isUlt ? 0.36 : CONFIG.heavyShakeDuration;
+            this.shakeIntensity = ev.isUlt ? 16 : CONFIG.heavyShakeIntensity;
+          }
+        } else if (ev.kind === "ult") {
+          this.ultBanner = {
+            fighterName: ev.fighterName,
+            ultTitle: ev.ultTitle,
+            photo: ev.photo,
+            faceCrop: ev.faceCrop,
+            color: ev.color,
+            timer: 1.05,
+            maxTimer: 1.05
+          };
+          this.shakeTimer = 0.34;
+          this.shakeIntensity = 15;
+        }
+      }
+
+      update(dt) {
+        this.worldTime += dt;
+        if (this.scene === "select") { this.updateSelectInput(); return; }
+        if (this.input.wasPressed("KeyC")) {
+          if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
+            this.sendWs({ type: "return_to_room" });
+          } else {
+            this.returnToSelect();
+          }
+          return;
+        }
+        if (this.input.wasPressed("KeyB")) { this.showBoxes = !this.showBoxes; }
+        if (this.input.wasPressed("KeyR")) {
+          if (this.playMode !== "online" || this.onlineIsHost) {
+            this.startMatch();
+            return;
+          }
+        }
+
+        // 同步手機虛擬必殺鍵高亮狀態 (依據自己操控的角色)
+        const myFighter = (this.playMode === "online" && this.allFighters[this.onlineMySlot - 1])
+          ? this.allFighters[this.onlineMySlot - 1]
+          : this.p1;
+        if (this.vBtnUlt && myFighter) {
+          this.vBtnUlt.classList.toggle("ready", myFighter.energy >= CONFIG.maxEnergy);
+        }
+
+        if (this.ultBanner) {
+          this.ultBanner.timer -= dt;
+          if (this.ultBanner.timer <= 0) this.ultBanner = null;
+        }
+        if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
+
+        // 若為連線房間的非房主客戶端 (2P/3P/4P)：將本地按鍵傳給房主，並更新本地粒子/煙火動畫
+        if (this.playMode === "online" && !this.onlineIsHost) {
+          this.sendClientInputToHost();
+          if (this.matchWinner && this.championFighter && this.victoryTime >= 0.55) {
+            this.fireworkTimer -= dt;
+            if (this.fireworkTimer <= 0) {
+              this.fireworkTimer = 0.45 + Math.random() * 0.45;
+              this.spawnVictoryFirework();
+            }
+            for (const c of this.victoryConfetti) {
+              c.x += c.vx * dt + Math.sin(this.victoryTime * 3.5 + c.swayPhase) * 35 * dt;
+              c.y += c.vy * dt;
+              c.rot += c.vRot * dt;
+              if (c.y > CONFIG.canvasHeight + 24) {
+                c.y = -20;
+                c.x = Math.random() * CONFIG.canvasWidth;
+              }
+            }
+          }
+          for (let i = this.particles.length - 1; i >= 0; i--) { this.particles[i].update(dt); if (this.particles[i].life <= 0) this.particles.splice(i, 1); }
+          for (let i = this.afterimages.length - 1; i >= 0; i--) { this.afterimages[i].update(dt); if (this.afterimages[i].life <= 0) this.afterimages.splice(i, 1); }
+          for (let i = this.starbursts.length - 1; i >= 0; i--) { this.starbursts[i].update(dt); if (this.starbursts[i].life <= 0) this.starbursts.splice(i, 1); }
+          for (let i = this.floatingTexts.length - 1; i >= 0; i--) { this.floatingTexts[i].update(dt); if (this.floatingTexts[i].life <= 0) this.floatingTexts.splice(i, 1); }
+          return;
+        }
+
+        if (this.roundIntroTimer > 0) this.roundIntroTimer = Math.max(0, this.roundIntroTimer - dt);
+        if (this.hitstopTimer > 0) { this.hitstopTimer = Math.max(0, this.hitstopTimer - dt); return; }
+
+        // 每局 60 秒倒數計時
+        if (!this.koWinner) {
+          this.roundTimer = Math.max(0, this.roundTimer - dt);
+        }
+
+        // 更新場上所有參戰角色 (2～4 人)
+        for (const f of this.activeFighters) {
+          if (f.isCOM) {
+            const target = this.getNearestOpponent(f);
+            if (target) {
+              const ai = f.id === 2 && this.activeFighters.length === 2 ? this.comAI : this.comAIs[f.id];
+              ai.update(dt, f, target);
+              f.update(dt, ai, this);
+            } else {
+              f.applyPhysics(dt, true, this.currentMap);
+            }
+          } else if (f.isRemote) {
+            const rInput = this.remoteInputs[f.id];
+            f.update(dt, rInput, this);
+            rInput.endFrame();
+          } else {
+            f.update(dt, this.input, this);
+          }
+        }
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+          this.projectiles[i].update(dt);
+          if (!this.projectiles[i].active) this.projectiles.splice(i, 1);
+        }
+
+        if (!this.koWinner) {
+          this.checkCombatHits();
+
+          // 1. 檢查存活人數 (支援 2～4 人同場大亂鬥，活到最後一人獲勝！)
+          const aliveFighters = this.activeFighters.filter((f) => f.hp > 0);
+          if (aliveFighters.length <= 1) {
+            if (aliveFighters.length === 1) {
+              this.concludeRound(aliveFighters[0], "K.O.!");
+            } else {
+              this.concludeRound("DRAW", "K.O.!");
+            }
+          }
+          // 2. 檢查 60 秒倒數時間到 (TIME OVER! 依剩餘血量百分比最高者獲勝)
+          else if (this.roundTimer <= 0) {
+            let bestRatio = -1;
+            let winners = [];
+            for (const f of this.activeFighters) {
+              const r = f.hp / f.maxHp;
+              if (r > bestRatio + 0.001) {
+                bestRatio = r;
+                winners = [f];
+              } else if (Math.abs(r - bestRatio) <= 0.001) {
+                winners.push(f);
+              }
+            }
+            if (winners.length === 1) {
+              this.concludeRound(winners[0], "TIME OVER!");
+            } else {
+              this.concludeRound("DRAW", "TIME OVER!");
+            }
+          }
+        } else {
+          if (this.matchWinner && this.championFighter) {
+            this.victoryTime += dt;
+            if (this.victoryTime >= 0.55) {
+              this.fireworkTimer -= dt;
+              if (this.fireworkTimer <= 0) {
+                this.fireworkTimer = 0.45 + Math.random() * 0.45;
+                this.spawnVictoryFirework();
+              }
+              for (const c of this.victoryConfetti) {
+                c.x += c.vx * dt + Math.sin(this.victoryTime * 3.5 + c.swayPhase) * 35 * dt;
+                c.y += c.vy * dt;
+                c.rot += c.vRot * dt;
+                if (c.y > CONFIG.canvasHeight + 24) {
+                  c.y = -20;
+                  c.x = Math.random() * CONFIG.canvasWidth;
+                }
+              }
+              if (this.victoryTime > 1.25 && this.input.wasPressed(["Space", "Enter", "KeyF", "Comma"])) {
+                if (this.playMode === "online") {
+                  if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+                } else {
+                  this.startMatch();
+                }
+                return;
+              }
+            }
+          }
+
+          this.resetTimer -= dt;
+          if (this.resetTimer <= 0) {
+            if (this.matchWinner) {
+              if (this.playMode === "online") {
+                if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+              } else {
+                this.startMatch();
+              }
+            } else {
+              this.roundNumber++;
+              this.resetRound(false);
+            }
+          }
+        }
+
+        // 若為連線模式房主，以 30Hz 同步權威狀態給房內所有玩家
+        if (this.playMode === "online" && this.onlineIsHost && this.wsConnected) {
+          this.netSyncTimer -= dt;
+          if (this.netSyncTimer <= 0) {
+            this.netSyncTimer = 0.032;
+            this.sendWs({
+              type: "game_state",
+              state: this.serializeOnlineState()
+            });
+          }
+        }
+
+        for (let i = this.particles.length - 1; i >= 0; i--) { this.particles[i].update(dt); if (this.particles[i].life <= 0) this.particles.splice(i, 1); }
+        for (let i = this.afterimages.length - 1; i >= 0; i--) { this.afterimages[i].update(dt); if (this.afterimages[i].life <= 0) this.afterimages.splice(i, 1); }
+        for (let i = this.starbursts.length - 1; i >= 0; i--) { this.starbursts[i].update(dt); if (this.starbursts[i].life <= 0) this.starbursts.splice(i, 1); }
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) { this.floatingTexts[i].update(dt); if (this.floatingTexts[i].life <= 0) this.floatingTexts.splice(i, 1); }
+      }
+
+      drawVictoryScreen(ctx) {
+        const champ = this.championFighter;
+        if (!champ) return;
+        const cx = CONFIG.canvasWidth / 2;
+        const cy = CONFIG.canvasHeight / 2 - 4;
+        const t = Math.max(0, this.victoryTime - 0.55);
+        const fadeAlpha = Math.min(1, t / 0.25);
+
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha;
+
+        // 1. 深色漸層暗角背景
+        const bgGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, 560);
+        bgGrad.addColorStop(0, "rgba(42, 20, 56, 0.86)");
+        bgGrad.addColorStop(0.55, "rgba(18, 10, 28, 0.92)");
+        bgGrad.addColorStop(1, "rgba(6, 4, 10, 0.96)");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
+
+        // 2. 萬丈金光旋轉背光 (24 道放射光芒)
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(t * 0.42);
+        const rayCount = 24;
+        for (let i = 0; i < rayCount; i++) {
+          ctx.rotate((Math.PI * 2) / rayCount);
+          const rayGrad = ctx.createLinearGradient(0, 0, 580, 0);
+          rayGrad.addColorStop(0, i % 2 === 0 ? "rgba(255, 209, 102, 0.34)" : "rgba(255, 77, 109, 0.22)");
+          rayGrad.addColorStop(0.65, "rgba(255, 190, 11, 0.08)");
+          rayGrad.addColorStop(1, "rgba(255, 190, 11, 0)");
+          ctx.fillStyle = rayGrad;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(580, -34);
+          ctx.lineTo(580, 34);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // 3. 背景慶祝煙火與星芒特效
+        for (const sb of this.starbursts) sb.draw(ctx);
+        for (const p of this.particles) p.draw(ctx);
+
+        // 4. 整張原本圖檔 (Uncropped Full Original Photo) 居中完整展示 + 震撼縮放進場與流光特效
+        const img = getCachedImage(champ.charDef.photo);
+        const maxW = 450;
+        const maxH = 305;
+        let drawW = 320;
+        let drawH = 280;
+        const hasImg = img && img.complete && img.naturalWidth > 0;
+        if (hasImg) {
+          const iw = img.naturalWidth;
+          const ih = img.naturalHeight;
+          const scale = Math.min(maxW / iw, maxH / ih);
+          drawW = Math.round(iw * scale);
+          drawH = Math.round(ih * scale);
+        }
+
+        // 進場震撼放大拍入動畫 + 呼吸懸浮感
+        const slamT = Math.min(1, t / 0.36);
+        const easeOutBack = 1 + 2.2 * Math.pow(slamT - 1, 3) + 1.2 * Math.pow(slamT - 1, 2);
+        const introScale = t < 0.36 ? (1.75 - 0.75 * easeOutBack) : (1 + Math.sin(t * 3.2) * 0.015);
+        const floatY = t >= 0.36 ? Math.sin(t * 2.6) * 4 : 0;
+
+        ctx.save();
+        ctx.translate(cx, cy + floatY);
+        ctx.scale(introScale, introScale);
+
+        // 角色專屬霸氣外發光光暈
+        const auraPulse = 0.65 + Math.sin(t * 6) * 0.35;
+        ctx.save();
+        ctx.shadowColor = champ.charDef.themeColor || "#ffd166";
+        ctx.shadowBlur = 32 + auraPulse * 18;
+        ctx.fillStyle = "#120c18";
+        ctx.beginPath();
+        ctx.roundRect(-drawW / 2 - 12, -drawH / 2 - 12, drawW + 24, drawH + 24, 16);
+        ctx.fill();
+        ctx.restore();
+
+        // 雙層皇家鎏金外框
+        const frameGrad = ctx.createLinearGradient(-drawW / 2 - 14, -drawH / 2 - 14, drawW / 2 + 14, drawH / 2 + 14);
+        frameGrad.addColorStop(0, "#fff3b0");
+        frameGrad.addColorStop(0.25, "#ffd166");
+        frameGrad.addColorStop(0.5, "#e09f3e");
+        frameGrad.addColorStop(0.75, "#ffd166");
+        frameGrad.addColorStop(1, "#fff3b0");
+        ctx.fillStyle = frameGrad;
+        ctx.beginPath();
+        ctx.roundRect(-drawW / 2 - 12, -drawH / 2 - 12, drawW + 24, drawH + 24, 16);
+        ctx.fill();
+
+        // 內層深色襯底邊框
+        ctx.fillStyle = "#181020";
+        ctx.beginPath();
+        ctx.roundRect(-drawW / 2 - 5, -drawH / 2 - 5, drawW + 10, drawH + 10, 11);
+        ctx.fill();
+
+        // 繪製整張未裁切原始照片 + 斜向流光掃過特效
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(-drawW / 2, -drawH / 2, drawW, drawH, 8);
+        ctx.clip();
+
+        if (hasImg) {
+          ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, -drawW / 2, -drawH / 2, drawW, drawH);
+        } else {
+          ctx.fillStyle = champ.charDef.themeColor || "#3a2d4c";
+          ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+        }
+
+        // 斜向金屬流光掃過整張照片
+        const sweepCycle = (t * 1.15) % 2.4;
+        if (sweepCycle < 1.35) {
+          const sweepProgress = sweepCycle / 1.35;
+          const sweepX = -drawW - 120 + sweepProgress * (drawW * 2 + 240);
+          ctx.save();
+          ctx.rotate(-0.42);
+          const sheenGrad = ctx.createLinearGradient(sweepX - 55, 0, sweepX + 55, 0);
+          sheenGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+          sheenGrad.addColorStop(0.5, "rgba(255, 250, 215, 0.52)");
+          sheenGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = sheenGrad;
+          ctx.fillRect(sweepX - 55, -drawH, 110, drawH * 2);
+          ctx.restore();
+        }
+        ctx.restore();
+
+        // 照片內側亮金細邊框
+        ctx.strokeStyle = "rgba(255, 240, 180, 0.88)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-drawW / 2, -drawH / 2, drawW, drawH, 8);
+        ctx.stroke();
+
+        // 四角王者菱形寶石雕花
+        const corners = [
+          [-drawW / 2 - 8, -drawH / 2 - 8],
+          [drawW / 2 + 8, -drawH / 2 - 8],
+          [-drawW / 2 - 8, drawH / 2 + 8],
+          [drawW / 2 + 8, drawH / 2 + 8]
+        ];
+        for (const [kx, ky] of corners) {
+          ctx.save();
+          ctx.translate(kx, ky);
+          ctx.rotate(Math.PI / 4);
+          ctx.fillStyle = "#ff4d6d";
+          ctx.strokeStyle = "#fff3b0";
+          ctx.lineWidth = 2;
+          ctx.fillRect(-7, -7, 14, 14);
+          ctx.strokeRect(-7, -7, 14, 14);
+          ctx.restore();
+        }
+
+        // 照片四周閃爍十字星芒
+        const starOffsets = [
+          [-drawW / 2 - 26, -drawH / 3, 0.0],
+          [drawW / 2 + 26, -drawH / 4, 1.1],
+          [-drawW / 2 - 22, drawH / 3, 2.2],
+          [drawW / 2 + 28, drawH / 3, 3.3],
+          [0, -drawH / 2 - 22, 1.7]
+        ];
+        for (const [sx, sy, phase] of starOffsets) {
+          const sScale = 0.4 + Math.abs(Math.sin(t * 4.5 + phase)) * 0.85;
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.scale(sScale, sScale);
+          ctx.fillStyle = "#fff8d6";
+          ctx.beginPath();
+          for (let k = 0; k < 8; k++) {
+            const r = k % 2 === 0 ? 13 : 3.5;
+            const a = (k * Math.PI) / 4;
+            if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+            else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore(); // 結束照片縮放座標系
+
+        // 5. 漫天飄落黃金與七彩勝利彩帶 (Confetti)
+        for (const c of this.victoryConfetti) {
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.rot);
+          ctx.fillStyle = c.color;
+          ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+          ctx.restore();
+        }
+
+        // 6. 頂部「三戰兩勝總冠軍 CHAMPION」皇冠雙緞帶橫幅
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const topBannerY = 38;
+        const topGrad = ctx.createLinearGradient(cx - 260, topBannerY - 22, cx + 260, topBannerY + 22);
+        topGrad.addColorStop(0, "rgba(24, 12, 36, 0)");
+        topGrad.addColorStop(0.15, "rgba(181, 23, 158, 0.94)");
+        topGrad.addColorStop(0.5, "rgba(247, 37, 133, 0.96)");
+        topGrad.addColorStop(0.85, "rgba(181, 23, 158, 0.94)");
+        topGrad.addColorStop(1, "rgba(24, 12, 36, 0)");
+        ctx.fillStyle = topGrad;
+        ctx.fillRect(cx - 310, topBannerY - 22, 620, 44);
+
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 250, topBannerY - 22); ctx.lineTo(cx + 250, topBannerY - 22);
+        ctx.moveTo(cx - 250, topBannerY + 22); ctx.lineTo(cx + 250, topBannerY + 22);
+        ctx.stroke();
+
+        ctx.font = "900 28px Impact, Microsoft JhengHei, sans-serif";
+        ctx.strokeStyle = "#1a0b24";
+        ctx.lineWidth = 6;
+        const scoreSummary = this.activeFighters.map((f) => `${f.id}P:${f.wins}勝`).join(" ｜ ");
+        const topTitle = `🏆 三戰兩勝制・總冠軍 CHAMPION  (${scoreSummary}) 🏆`;
+        ctx.strokeText(topTitle, cx, topBannerY + 1);
+        ctx.fillStyle = "#ffd166";
+        ctx.fillText(topTitle, cx, topBannerY + 1);
+        ctx.restore();
+
+        // 7. 底部角色名牌與必殺稱號展示座
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const plateY = CONFIG.canvasHeight - 66;
+
+        ctx.fillStyle = "rgba(15, 9, 24, 0.9)";
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(cx - 320, plateY - 34, 640, 74, 14);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = "900 33px Impact, Microsoft JhengHei, sans-serif";
+        ctx.strokeStyle = "#3d0814";
+        ctx.lineWidth = 6;
+        const champLine = `${this.matchWinner}  —  【${champ.charDef.title}】`;
+        ctx.strokeText(champLine, cx, plateY - 8);
+        ctx.fillStyle = "#ffbe0b";
+        ctx.fillText(champLine, cx, plateY - 8);
+
+        ctx.font = "bold 14px Microsoft JhengHei, sans-serif";
+        ctx.fillStyle = "#f4efe6";
+        const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊上方「重選武將 / 房間」可更換設定`;
+        ctx.fillText(hintLine, cx, plateY + 23);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      drawHUD(ctx) {
+        const topY = 14;
+        if (this.activeFighters.length <= 2) {
+          const barWidth = 315; const barHeight = 20;
+          this.drawHealthAndEnergyBar(ctx, 84, topY, barWidth, barHeight, this.p1, this.p1.wins, false, false);
+          if (this.activeFighters[1]) {
+            this.drawHealthAndEnergyBar(ctx, CONFIG.canvasWidth - 84 - barWidth, topY, barWidth, barHeight, this.activeFighters[1], this.activeFighters[1].wins, true, false);
+          }
+        } else {
+          // 3～4 人大亂鬥雙排緊湊血條與集氣條 HUD
+          const barW = 290; const barH = 13;
+          const positions = [
+            { x: 64, y: 10, right: false },
+            { x: CONFIG.canvasWidth - 64 - barW, y: 10, right: true },
+            { x: 64, y: 56, right: false },
+            { x: CONFIG.canvasWidth - 64 - barW, y: 56, right: true }
+          ];
+          this.activeFighters.forEach((f, idx) => {
+            const pos = positions[idx];
+            if (pos) {
+              this.drawHealthAndEnergyBar(ctx, pos.x, pos.y, barW, barH, f, f.wins, pos.right, true);
+            }
+          });
+        }
+
+        // 中央頂部：回合數 + 60 秒倒數計時器
+        const centerX = CONFIG.canvasWidth / 2;
+        const isLowTime = this.roundTimer <= CONFIG.rageTimeThreshold;
+        ctx.save();
+        const timerGrad = ctx.createLinearGradient(0, topY - 8, 0, topY + 54);
+        timerGrad.addColorStop(0, isLowTime ? "#590d22" : "#3b2333");
+        timerGrad.addColorStop(1, "#180f18");
+        ctx.fillStyle = timerGrad;
+        ctx.strokeStyle = isLowTime ? "#ff0054" : "#ffd166";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(centerX - 46, topY - 8, 92, 58, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        // 回合標籤
+        ctx.fillStyle = "#ffd166";
+        ctx.font = "bold 11px Microsoft JhengHei, sans-serif";
+        ctx.textAlign = "center";
+        const isMatchPoint = this.activeFighters.filter((f) => f.wins === CONFIG.winsToMatch - 1).length >= 2;
+        const roundLabel = isMatchPoint ? "FINAL ROUND" : `ROUND ${this.roundNumber}`;
+        ctx.fillText(roundLabel, centerX, topY + 5);
+
+        // 60 秒倒數大數字
+        const secNum = Math.ceil(this.roundTimer);
+        ctx.font = "900 30px Impact, sans-serif";
+        ctx.fillStyle = isLowTime && Math.floor(this.worldTime * 8) % 2 === 0 ? "#ff4d6d" : "#ffffff";
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 4;
+        ctx.strokeText(String(secNum).padStart(2, "0"), centerX, topY + 33);
+        ctx.fillText(String(secNum).padStart(2, "0"), centerX, topY + 33);
+
+        if (isLowTime && !this.koWinner) {
+          ctx.font = "bold 12px Microsoft JhengHei, sans-serif";
+          ctx.fillStyle = "#ffbe0b";
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = 3;
+          ctx.strokeText("🔥 最後決戰：傷害與集氣提升！", centerX, topY + 66);
+          ctx.fillText("🔥 最後決戰：傷害與集氣提升！", centerX, topY + 66);
+        }
+        ctx.restore();
+
+        // 超必殺技施放特寫橫幅 (Super Cut-In)
+        if (this.ultBanner) {
+          const b = this.ultBanner;
+          const alpha = Math.min(1, b.timer * 3);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          const bannerY = 98;
+          const grad = ctx.createLinearGradient(0, bannerY, CONFIG.canvasWidth, bannerY);
+          grad.addColorStop(0, "rgba(18, 10, 28, 0.92)");
+          grad.addColorStop(0.5, "rgba(181, 23, 158, 0.92)");
+          grad.addColorStop(1, "rgba(18, 10, 28, 0.92)");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, bannerY, CONFIG.canvasWidth, 64);
+          ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(0, bannerY); ctx.lineTo(CONFIG.canvasWidth, bannerY);
+          ctx.moveTo(0, bannerY + 64); ctx.lineTo(CONFIG.canvasWidth, bannerY + 64);
+          ctx.stroke();
+
+          drawCroppedPhoto(ctx, b.photo, b.faceCrop, centerX - 240, bannerY + 4, 56, 56, 8, false);
+          ctx.textAlign = "left";
+          ctx.fillStyle = "#ffd166";
+          ctx.font = "bold 15px Microsoft JhengHei, sans-serif";
+          ctx.fillText(`⚡ ${b.fighterName} 施放超必殺技！`, centerX - 172, bannerY + 24);
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#16111c"; ctx.lineWidth = 4;
+          ctx.font = "900 26px Microsoft JhengHei, sans-serif";
+          ctx.strokeText(`【${b.ultTitle}】`, centerX - 172, bannerY + 52);
+          ctx.fillText(`【${b.ultTitle}】`, centerX - 172, bannerY + 52);
+          ctx.restore();
+        }
+
+        // 開局 ROUND X - FIGHT! 提示
+        if (this.roundIntroTimer > 0 && !this.koWinner) {
+          ctx.save();
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          const modeLabel = this.activeFighters.length > 2 ? `${this.activeFighters.length}人大亂鬥・三戰兩勝` : "三戰兩勝";
+          const txt = this.roundIntroTimer > 0.45 ? `${roundLabel}  (${modeLabel})` : "FIGHT!!";
+          ctx.font = "900 50px Impact, Microsoft JhengHei, sans-serif";
+          ctx.strokeStyle = "#16111c"; ctx.lineWidth = 8;
+          ctx.fillStyle = this.roundIntroTimer > 0.45 ? "#ffd166" : "#ff4d5a";
+          ctx.strokeText(txt, centerX, CONFIG.canvasHeight / 2 - 20);
+          ctx.fillText(txt, centerX, CONFIG.canvasHeight / 2 - 20);
+          ctx.restore();
+        }
+
+        // 三戰兩勝制總冠軍專屬「整張原圖 + 華麗特效」勝利畫面，或單局結算橫幅
+        if (this.koWinner) {
+          if (this.matchWinner && this.championFighter && this.victoryTime >= 0.55) {
+            this.drawVictoryScreen(ctx);
+          } else {
+            ctx.save();
+            ctx.fillStyle = "rgba(10, 6, 14, 0.74)";
+            ctx.fillRect(0, CONFIG.canvasHeight / 2 - 90, CONFIG.canvasWidth, 175);
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+            const scoreLine = this.activeFighters.map((f) => `${f.id}P:${f.wins}勝`).join("  ｜  ");
+            ctx.font = "900 24px Impact, Microsoft JhengHei, sans-serif";
+            ctx.fillStyle = "#ff4d6d";
+            ctx.fillText(`${this.roundEndReason}  ｜  比數  ${scoreLine}`, centerX, CONFIG.canvasHeight / 2 - 58);
+
+            ctx.font = "900 54px Impact, Microsoft JhengHei, sans-serif";
+            ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 7;
+            const mainText = this.matchWinner
+              ? `${this.roundEndReason} 勝負已分！`
+              : (this.koWinner === "DRAW" ? "本局平手 DRAW!" : `第 ${this.roundNumber} 局勝者：${this.koWinner}!`);
+            ctx.strokeText(mainText, centerX, CONFIG.canvasHeight / 2 - 6);
+            ctx.fillText(mainText, centerX, CONFIG.canvasHeight / 2 - 6);
+
+            ctx.font = "bold 17px Microsoft JhengHei, sans-serif"; ctx.fillStyle = "#f4efe6";
+            const subText = this.matchWinner
+              ? "即將揭曉三戰兩勝總冠軍..."
+              : `準備進入第 ${this.roundNumber + 1} 局 (${Math.max(0, this.resetTimer).toFixed(1)}s)...`;
+            ctx.fillText(subText, centerX, CONFIG.canvasHeight / 2 + 48);
+            ctx.restore();
+          }
+        }
+      }
+
+      drawHealthAndEnergyBar(ctx, x, y, w, h, player, wins, alignRight, compact = false) {
+        const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
+        const trailRatio = Math.max(0, Math.min(1, player.trailHp / player.maxHp));
+        const energyRatio = Math.max(0, Math.min(1, player.energy / CONFIG.maxEnergy));
+        const isEnergyFull = player.energy >= CONFIG.maxEnergy;
+        ctx.save();
+
+        // 頭像框
+        const portSize = compact ? 40 : 58;
+        const portX = alignRight ? x + w + 8 : x - portSize - 8;
+        const portY = y - 2;
+        ctx.fillStyle = "#1c1522"; ctx.fillRect(portX, portY, portSize, portSize);
+        drawCroppedPhoto(ctx, player.charDef.photo, player.charDef.faceCrop, portX + 2, portY + 2, portSize - 4, portSize - 4, 4, false);
+        ctx.strokeStyle = player.slotColor || (alignRight ? "#4da3ff" : "#ff4d5a");
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(portX, portY, portSize, portSize);
+
+        // 1. 血條 (HP Bar)
+        ctx.fillStyle = "rgba(18, 12, 20, 0.88)"; ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = "#f77f00";
+        const trailW = w * trailRatio;
+        ctx.fillRect(alignRight ? x + (w - trailW) : x, y, trailW, h);
+
+        const hpGrad = ctx.createLinearGradient(0, y, 0, y + h);
+        if (hpRatio > 0.28) { hpGrad.addColorStop(0, "#ffe066"); hpGrad.addColorStop(1, "#f4a261"); }
+        else { hpGrad.addColorStop(0, "#ff4d6d"); hpGrad.addColorStop(1, "#a4133c"); }
+        ctx.fillStyle = hpGrad;
+        const hpW = w * hpRatio;
+        ctx.fillRect(alignRight ? x + (w - hpW) : x, y, hpW, h);
+        ctx.fillStyle = "rgba(255,255,255,0.28)";
+        ctx.fillRect(alignRight ? x + (w - hpW) : x, y + 1, hpW, Math.max(2, h * 0.2));
+        ctx.strokeStyle = "#f4efe6"; ctx.lineWidth = compact ? 1.6 : 2.2; ctx.strokeRect(x, y, w, h);
+
+        // 2. 集氣條 (Energy / Super Bar)
+        const ebY = y + h + (compact ? 3 : 5);
+        const ebH = compact ? 7 : 11;
+        ctx.fillStyle = "rgba(14, 10, 22, 0.9)";
+        ctx.fillRect(x, ebY, w, ebH);
+
+        const ebW = w * energyRatio;
+        const ebGrad = ctx.createLinearGradient(x, ebY, x + w, ebY);
+        if (isEnergyFull) {
+          const flash = Math.floor(this.worldTime * 10) % 2 === 0;
+          ebGrad.addColorStop(0, flash ? "#fff3b0" : "#ffbe0b");
+          ebGrad.addColorStop(0.5, "#ff0054");
+          ebGrad.addColorStop(1, "#7209b7");
+        } else {
+          ebGrad.addColorStop(0, "#00b4d8");
+          ebGrad.addColorStop(1, "#7209b7");
+        }
+        ctx.fillStyle = ebGrad;
+        ctx.fillRect(alignRight ? x + (w - ebW) : x, ebY, ebW, ebH);
+        ctx.strokeStyle = isEnergyFull ? "#ffd166" : "#8d7ea3";
+        ctx.lineWidth = isEnergyFull ? 2.0 : 1.2;
+        ctx.strokeRect(x, ebY, w, ebH);
+
+        // 3. 角色名稱、三戰兩勝星號 (★ ☆) 與必殺就緒提示
+        ctx.font = compact ? "bold 11px Microsoft JhengHei, sans-serif" : "bold 13px Microsoft JhengHei, sans-serif";
+        ctx.textAlign = alignRight ? "right" : "left";
+        ctx.strokeStyle = "#000000"; ctx.lineWidth = 3;
+
+        const stars = `${wins >= 1 ? "★" : "☆"}${wins >= 2 ? "★" : "☆"}`;
+        const ultHint = isEnergyFull
+          ? (player.id === 1 || (this.playMode === "online" && player.id === this.onlineMySlot) ? " 🔥MAX! 按[J]" : " 🔥MAX!")
+          : ` 氣${Math.floor(player.energy)}%`;
+        const infoText = alignRight
+          ? `${ultHint} ｜ ${stars} ${player.name} (${player.hp})`
+          : `${player.name} (${player.hp}) ${stars} ｜ ${ultHint}`;
+
+        ctx.fillStyle = isEnergyFull ? "#ffd166" : "#ffffff";
+        const textY = ebY + ebH + (compact ? 11 : 15);
+        ctx.strokeText(infoText, alignRight ? x + w : x, textY);
+        ctx.fillText(infoText, alignRight ? x + w : x, textY);
+        ctx.restore();
+      }
+
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        if (this.shakeTimer > 0) {
+          const factor = Math.min(1.5, this.shakeTimer / CONFIG.heavyShakeDuration);
+          const mag = this.shakeIntensity * factor;
+          ctx.translate((Math.random() * 2 - 1) * mag, (Math.random() * 2 - 1) * mag);
+        }
+        this.currentMap.draw(ctx, this.worldTime);
+        if (this.scene === "fight") {
+          for (const img of this.afterimages) img.draw(ctx);
+          const showHeadTag = this.activeFighters.length > 2 || this.playMode === "online";
+          const fighters = [...this.activeFighters].sort((a, b) => a.y - b.y);
+          for (const f of fighters) f.draw(ctx, this.showBoxes, showHeadTag);
+          for (const proj of this.projectiles) proj.draw(ctx, this.showBoxes);
+          for (const p of this.particles) p.draw(ctx);
+          for (const s of this.starbursts) s.draw(ctx);
+          for (const ft of this.floatingTexts) ft.draw(ctx);
+        }
+        ctx.restore();
+        if (this.scene === "fight") this.drawHUD(ctx);
+      }
+
+      loop(now) {
+        const dt = Math.min(Math.max(0, (now - this.lastTime) / 1000), 0.05);
+        this.lastTime = now;
+        try {
+          this.update(dt);
+          this.render();
+        } catch (err) {
+          console.error("Game loop error:", err);
+        }
+        this.input.endFrame();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("gameCanvas");
+      new Game(canvas);
+    });
+  </script>
+</body>
+</html>
