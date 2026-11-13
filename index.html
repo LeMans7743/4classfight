@@ -2540,6 +2540,7 @@
         this.hitFlashTimer = 0; this.animTime = 0;
         this.comboHits = 0; this.comboTimer = 0; this.pendingKnockdown = false; this.knockdownForceTimer = 0;
         this.recentAttackers = new Map(); // attacker -> 最後命中時間 (圍毆判定)
+        this.netTarget = null; this.hasNetPos = false;
       }
 
       // 是否處於被圍毆狀態 (gangUpWindow 秒內被 2 名以上不同對手命中)
@@ -3471,14 +3472,14 @@
           }
 
           case "game_state": {
-            if (this.playMode === "online" && !this.onlineIsHost && msg.state) {
+            if (this.playMode === "online" && msg.state) {
               this.applyOnlineState(msg.state);
             }
             break;
           }
 
           case "game_event": {
-            if (this.playMode === "online" && !this.onlineIsHost && msg.event) {
+            if (this.playMode === "online" && msg.event) {
               this.applyOnlineEvent(msg.event);
             }
             break;
@@ -4344,10 +4345,10 @@
       }
 
       // =======================================================================
-      // 🌐 連線狀態打包與同步 (Host 權威狀態同步 + Client 按鍵轉發)
+      // 🌐 嚴格伺服器權威：所有玩家 (1P~4P) 僅發送按鍵給伺服器，並接收狀態平滑插值
       // =======================================================================
-      sendClientInputToHost() {
-        if (this.playMode !== "online" || this.onlineIsHost || !this.wsConnected) return;
+      sendInputToServer() {
+        if (this.playMode !== "online" || !this.wsConnected) return;
         const held = [];
         const pressed = [];
         if (this.input.isHeld(["KeyW", "ArrowUp"])) held.push("ACT_UP");
@@ -4436,9 +4437,15 @@
           for (const fd of s.fs) {
             const f = this.allFighters[fd.id - 1];
             if (!f) continue;
-            f.x = fd.x;
-            f.y = fd.y;
-            f.z = fd.z;
+            if (fd.hp < f.hp) f.hitFlashTimer = 0.12;
+            // 設定網路目標座標，由渲染迴圈做線性插值 (Lerp) 平滑過渡
+            f.netTarget = { x: fd.x, y: fd.y, z: fd.z };
+            if (!f.hasNetPos || Math.hypot(fd.x - f.x, fd.y - f.y) > 130) {
+              f.x = fd.x;
+              f.y = fd.y;
+              f.z = fd.z;
+              f.hasNetPos = true;
+            }
             f.facing = fd.fc;
             f.hp = fd.hp;
             f.trailHp = fd.thp;
@@ -4456,7 +4463,18 @@
         }
 
         if (Array.isArray(s.ps)) {
+          const prevById = new Map();
+          for (const p of this.projectiles) {
+            if (p.netId !== undefined) prevById.set(p.netId, p);
+          }
           this.projectiles = s.ps.map((pd) => {
+            const existing = pd.id !== undefined ? prevById.get(pd.id) : null;
+            if (existing) {
+              existing.netTarget = { x: pd.x, groundY: pd.gy, z: pd.z };
+              existing.facing = pd.fc;
+              existing.angle = pd.ang;
+              return existing;
+            }
             const dummyProj = new Projectile({
               owner: this.p1,
               x: pd.x,
@@ -4465,6 +4483,8 @@
               facing: pd.fc,
               attackData: { projType: pd.pt, width: pd.w, height: pd.h, projSpeed: 0, projLife: 1, offsetZ: 20, depthTolerance: 36 }
             });
+            dummyProj.netId = pd.id;
+            dummyProj.netTarget = { x: pd.x, groundY: pd.gy, z: pd.z };
             dummyProj.angle = pd.ang;
             return dummyProj;
           });
@@ -4480,6 +4500,7 @@
       }
 
       applyOnlineEvent(ev) {
+        if (ev.sfx) SFX.play(ev.sfx);
         if (ev.kind === "hit") {
           this.spawnHitSparks(ev.hitX, ev.hitY, ev.isHeavyOrUlt);
           this.starbursts.push(new HitStarburst(ev.hitX, ev.hitY, ev.isHeavyOrUlt));
@@ -4488,12 +4509,16 @@
             this.shakeTimer = ev.isUlt ? 0.36 : CONFIG.heavyShakeDuration;
             this.shakeIntensity = ev.isUlt ? 16 : CONFIG.heavyShakeIntensity;
           }
+        } else if (ev.kind === "text") {
+          this.floatingTexts.push(new FloatingText(ev.x, ev.y, ev.text, ev.color, ev.scale || 1.1));
         } else if (ev.kind === "ult") {
+          const caster = this.allFighters[(ev.slot || 1) - 1];
+          SFX.play("ult");
           this.ultBanner = {
             fighterName: ev.fighterName,
             ultTitle: ev.ultTitle,
-            photo: ev.photo,
-            faceCrop: ev.faceCrop,
+            photo: ev.photo || caster?.charDef?.photo,
+            faceCrop: ev.faceCrop || caster?.charDef?.faceCrop,
             color: ev.color,
             timer: 1.05,
             maxTimer: 1.05
@@ -4536,9 +4561,26 @@
         }
         if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
 
-        // 若為連線房間的非房主客戶端 (2P/3P/4P)：將本地按鍵傳給房主，並更新本地粒子/煙火動畫
-        if (this.playMode === "online" && !this.onlineIsHost) {
-          this.sendClientInputToHost();
+        // 嚴格伺服器權威連線模式：所有玩家 (1P~4P) 僅送出按鍵給伺服器，並對座標做 Lerp 平滑插值渲染
+        if (this.playMode === "online") {
+          this.sendInputToServer();
+          const fighterLerp = Math.min(1, dt * 24);
+          for (const f of this.activeFighters) {
+            if (f.hitFlashTimer > 0) f.hitFlashTimer = Math.max(0, f.hitFlashTimer - dt);
+            if (f.netTarget) {
+              f.x += (f.netTarget.x - f.x) * fighterLerp;
+              f.y += (f.netTarget.y - f.y) * fighterLerp;
+              f.z += (f.netTarget.z - f.z) * fighterLerp;
+            }
+          }
+          const projLerp = Math.min(1, dt * 26);
+          for (const p of this.projectiles) {
+            if (p.netTarget) {
+              p.x += (p.netTarget.x - p.x) * projLerp;
+              p.groundY += (p.netTarget.groundY - p.groundY) * projLerp;
+              p.z += (p.netTarget.z - p.z) * projLerp;
+            }
+          }
           if (this.matchWinner && this.championFighter && this.victoryTime >= 0.55) {
             this.fireworkTimer -= dt;
             if (this.fireworkTimer <= 0) {
@@ -4553,6 +4595,9 @@
                 c.y = -20;
                 c.x = Math.random() * CONFIG.canvasWidth;
               }
+            }
+            if (this.victoryTime > 1.25 && this.onlineIsHost && this.input.wasPressed(["Space", "Enter", "KeyF", "Comma"])) {
+              this.sendWs({ type: "rematch_request" });
             }
           }
           for (let i = this.particles.length - 1; i >= 0; i--) { this.particles[i].update(dt); if (this.particles[i].life <= 0) this.particles.splice(i, 1); }
