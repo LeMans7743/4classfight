@@ -1177,7 +1177,7 @@
             <strong style="color:#ff6b6b;">1P 鍵盤：</strong>
             移動 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
             跳 <kbd>Space</kbd> 輕 <kbd>F</kbd> 重 <kbd>G</kbd> 衝 <kbd>H</kbd> <strong style="color:#ffd166;">必殺
-              <kbd>J</kbd></strong>
+              <kbd>T</kbd></strong>
           </div>
           <div id="p2KeyBox" class="pc-key-box">
             <strong style="color:#66a3ff;">2P 鍵盤：</strong>
@@ -2174,7 +2174,7 @@
         this.held = new Set();
         this.pressed = new Set();
         const gameKeys = new Set([
-          "KeyW", "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ",
+          "KeyW", "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyT", "KeyJ",
           "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
           "Space", "Enter", "ShiftRight", "Comma", "Period", "Slash", "Semicolon", "KeyM",
           "KeyC", "KeyR", "KeyB", "Tab"
@@ -2291,7 +2291,7 @@
           btn.addEventListener("pointerleave", release);
         };
 
-        bindBtn("vBtnUlt", "KeyJ");
+        bindBtn("vBtnUlt", "KeyT");
         bindBtn("vBtnLight", "KeyF");
         bindBtn("vBtnHeavy", "KeyG");
         bindBtn("vBtnJump", "Space");
@@ -3261,7 +3261,7 @@
         const midY = (this.currentMap.arenaTopY + this.currentMap.arenaBottomY) / 2;
         this.p1 = new Player({
           id: 1, x: 200, y: midY, facing: 1, charDef: CHARACTER_ROSTER[this.p1Index],
-          controls: { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyJ" }
+          controls: { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyT" }
         });
         this.p2 = new Player({
           id: 2, x: CONFIG.canvasWidth - 200 - CONFIG.playerWidth, y: midY, facing: -1, charDef: CHARACTER_ROSTER[this.p2Index],
@@ -4128,7 +4128,7 @@
               light: ["KeyF", "Comma"],
               heavy: ["KeyG", "Period"],
               dash: ["KeyH", "Slash"],
-              ult: ["KeyJ", "Semicolon", "KeyM"]
+              ult: ["KeyT", "Semicolon", "KeyM"]
             };
           } else {
             f.controls = CANONICAL_NET_CONTROLS;
@@ -4161,7 +4161,7 @@
         this.p1.isCOM = false;
         this.p1.isRemote = false;
         this.p1.customNickname = "";
-        this.p1.controls = { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyJ" };
+        this.p1.controls = { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "Space", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyT" };
         this.p1.setCharacter(CHARACTER_ROSTER[this.p1Index]);
         this.p1.wins = 0;
 
@@ -4492,7 +4492,7 @@
         if (this.input.wasPressed(["KeyF", "Comma"])) pressed.push("ACT_LIGHT");
         if (this.input.wasPressed(["KeyG", "Period"])) pressed.push("ACT_HEAVY");
         if (this.input.wasPressed(["KeyH", "Slash"])) pressed.push("ACT_DASH");
-        if (this.input.wasPressed(["KeyJ", "Semicolon", "KeyM"])) pressed.push("ACT_ULT");
+        if (this.input.wasPressed(["KeyT", "Semicolon", "KeyM"])) pressed.push("ACT_ULT");
 
         const heldKey = held.join(",");
         const now = performance.now();
