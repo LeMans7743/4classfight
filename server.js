@@ -1282,7 +1282,8 @@ function broadcastMatchState(room) {
   for (const p of room.players) {
     if (p.isCOM) continue;
     const c = clients.get(p.clientId);
-    if (c) sendJson(c, packet);
+    // 防止慢速連線堆積過時影格造成延遲雪球
+    if (c && c.socket && (c.socket.writableLength || 0) <= 16384) sendJson(c, packet);
   }
 }
 
@@ -1405,16 +1406,22 @@ server.on("upgrade", (req, socket) => {
   socket.on("error", cleanup);
 });
 
-// 嚴格伺服器權威：60 FPS 遊戲物理運算與狀態廣播迴圈 (約 16.67ms)
+// 嚴格伺服器權威：60 FPS 遊戲物理運算迴圈 (約 16.67ms) + 30Hz 狀態廣播 (避免廣域網/代理塞車)
 let lastTickMs = Date.now();
+let netTickCount = 0;
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min(0.05, Math.max(0.001, (now - lastTickMs) / 1000));
   lastTickMs = now;
+  netTickCount++;
+  const shouldBroadcast = (netTickCount % 2 === 0);
   for (const room of rooms.values()) {
     if (room.status === "fighting" && room.match) {
+      const prevKo = room.match.koWinner;
       room.match.update(dt);
-      broadcastMatchState(room);
+      if (shouldBroadcast || room.match.koWinner !== prevKo) {
+        broadcastMatchState(room);
+      }
     }
   }
 }, 1000 / 60);

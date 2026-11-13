@@ -4348,7 +4348,8 @@
       // 🌐 嚴格伺服器權威：所有玩家 (1P~4P) 僅發送按鍵給伺服器，並接收狀態平滑插值
       // =======================================================================
       sendInputToServer() {
-        if (this.playMode !== "online" || !this.wsConnected) return;
+        if (this.playMode !== "online" || !this.wsConnected || !this.ws) return;
+        if (this.ws.bufferedAmount > 8192) return; // 避免網路壅塞時按鍵封包堆積
         const held = [];
         const pressed = [];
         if (this.input.isHeld(["KeyW", "ArrowUp"])) held.push("ACT_UP");
@@ -4361,6 +4362,15 @@
         if (this.input.wasPressed(["KeyG", "Period"])) pressed.push("ACT_HEAVY");
         if (this.input.wasPressed(["KeyH", "Slash"])) pressed.push("ACT_DASH");
         if (this.input.wasPressed(["KeyJ", "Semicolon", "KeyM"])) pressed.push("ACT_ULT");
+
+        const heldKey = held.join(",");
+        const now = performance.now();
+        // 只在按住方向改變、有按下動作鍵、或按住方向每 180ms 補發一次時才送出，大幅降低上行流量
+        if (heldKey === this._lastSentHeldKey && pressed.length === 0 && (held.length === 0 || now - (this._lastInputSendMs || 0) < 180)) {
+          return;
+        }
+        this._lastSentHeldKey = heldKey;
+        this._lastInputSendMs = now;
 
         this.sendWs({
           type: "player_input",
@@ -4453,7 +4463,7 @@
             f.wins = fd.w;
             f.state = fd.st;
             f.stateTimer = fd.stt;
-            f.animTime = fd.at;
+            if (Math.abs((f.animTime || 0) - fd.at) > 0.3) f.animTime = fd.at;
             f.invulnTimer = fd.inv;
             f.currentAttack = fd.ak ? f.charDef.attacks[fd.ak] : null;
             f.lockedTargetPos = fd.lt ? { x: fd.lt[0], y: fd.lt[1] } : null;
@@ -4564,8 +4574,10 @@
         // 嚴格伺服器權威連線模式：所有玩家 (1P~4P) 僅送出按鍵給伺服器，並對座標做 Lerp 平滑插值渲染
         if (this.playMode === "online") {
           this.sendInputToServer();
-          const fighterLerp = Math.min(1, dt * 24);
+          const fighterLerp = Math.min(1, dt * 16);
           for (const f of this.activeFighters) {
+            f.animTime += dt; // 本地持續推進動作幀，避免網路微延遲時動作卡住
+            if (f.trailHp > f.hp) f.trailHp = Math.max(f.hp, f.trailHp - 45 * dt);
             if (f.hitFlashTimer > 0) f.hitFlashTimer = Math.max(0, f.hitFlashTimer - dt);
             if (f.netTarget) {
               f.x += (f.netTarget.x - f.x) * fighterLerp;
@@ -4573,7 +4585,7 @@
               f.z += (f.netTarget.z - f.z) * fighterLerp;
             }
           }
-          const projLerp = Math.min(1, dt * 26);
+          const projLerp = Math.min(1, dt * 18);
           for (const p of this.projectiles) {
             if (p.netTarget) {
               p.x += (p.netTarget.x - p.x) * projLerp;
