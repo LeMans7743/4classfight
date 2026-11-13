@@ -6,3 +6,4 @@ window.SERVER_CONFIG = {
   // 若留空，遊戲將優先讀取瀏覽器上次輸入紀錄，或預設連線本地 localhost:3000
   wsUrl: ""
 };
+

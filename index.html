@@ -3,8 +3,12 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>吞食天地風格 1v1 平面格鬥 — 街機＆手機雙棲版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="screen-orientation" content="landscape" />
+  <title>吞食天地・2～4人好友大亂鬥</title>
   <script src="config.js"></script>
   <style>
     * {
@@ -779,6 +783,137 @@
       }
       .deck-center-info { display: none; }
     }
+
+    /* ================= v0.2 手機橫版：格鬥全螢幕 + 虛擬按鍵疊在畫面上 ================= */
+    body.touch-ui {
+      padding: 0;
+      justify-content: center;
+      background: #000;
+    }
+    body.touch-ui .title-bar { display: none; }
+    body.touch-ui .game-wrapper {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      gap: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 舞台以 16:9 填滿螢幕 (較寬的手機左右留黑邊，按鍵可落在黑邊上) */
+    body.touch-ui .stage-container {
+      flex: none;
+      width: min(100vw, calc(100vh * 16 / 9));
+      width: min(100vw, calc(100dvh * 16 / 9));
+      height: auto;
+      max-width: none;
+      aspect-ratio: 16 / 9;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    /* 選角畫面在手機上直接使用整個螢幕 */
+    body.touch-ui .select-overlay {
+      position: fixed;
+      inset: 0;
+      padding: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+    }
+    /* 虛擬控制層：全螢幕透明疊加，只有按鍵本身吃觸控 */
+    body.touch-ui .virtual-controller-deck {
+      position: fixed;
+      inset: 0;
+      width: auto;
+      max-width: none;
+      max-height: none;
+      display: block;
+      padding: 0;
+      background: none;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      pointer-events: none;
+      z-index: 20;
+    }
+    body.touch-ui .deck-center-info { display: none; }
+    body.touch-ui .dpad-zone {
+      position: absolute;
+      left: calc(env(safe-area-inset-left, 0px) + 22px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+      width: 136px;
+      height: 136px;
+      background: radial-gradient(circle, rgba(45, 37, 56, 0.45) 0%, rgba(25, 20, 32, 0.35) 75%);
+      border-color: rgba(255, 255, 255, 0.28);
+      box-shadow: none;
+      pointer-events: auto;
+    }
+    body.touch-ui .dpad-cross { color: rgba(255, 255, 255, 0.45); }
+    body.touch-ui .dpad-stick { opacity: 0.85; }
+    body.touch-ui .action-buttons-zone {
+      position: absolute;
+      right: calc(env(safe-area-inset-right, 0px) + 16px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      transform: scale(1.15);
+      transform-origin: bottom right;
+      pointer-events: auto;
+    }
+    body.touch-ui .v-btn { opacity: 0.78; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45); }
+    body.touch-ui .v-btn.btn-ult { opacity: 0.5; }
+    body.touch-ui .v-btn.btn-ult.ready { opacity: 1; }
+    @media (max-height: 380px) {
+      body.touch-ui .action-buttons-zone { transform: scale(1); }
+      body.touch-ui .dpad-zone { width: 118px; height: 118px; }
+    }
+    /* 戰鬥中的選單鍵 (回選角 / 房間) */
+    .touch-menu-btn {
+      display: none;
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 6px);
+      left: calc(env(safe-area-inset-left, 0px) + 6px);
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      background: rgba(20, 14, 28, 0.55);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 900;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .touch-sub-btn {
+      top: calc(env(safe-area-inset-top, 0px) + 46px);
+      font-size: 15px;
+    }
+    .touch-fs-btn {
+      top: calc(env(safe-area-inset-top, 0px) + 86px);
+      font-size: 16px;
+    }
+    body.touch-ui .touch-menu-btn { display: block; }
+    /* 選角畫面時隱藏虛擬按鍵，避免擋住卡片 */
+    body.touch-ui.in-select .virtual-controller-deck { display: none; }
+    /* 直向時提示轉橫 */
+    .rotate-hint {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #0d0a12;
+      color: #ffd166;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      font-size: 18px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .rotate-hint .rotate-icon { font-size: 64px; animation: rotateHintSpin 1.6s ease-in-out infinite; }
+    @keyframes rotateHintSpin { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(90deg); } }
+    @media (orientation: portrait) {
+      body.touch-ui .rotate-hint { display: flex; }
+    }
   </style>
 </head>
 <body>
@@ -786,6 +921,7 @@
     <div class="title-bar">
       <h1>吞食天地・2～4人大亂鬥連線版</h1>
       <div class="top-actions">
+        <button id="btnTopMute" class="quick-btn" type="button">🔊 音效</button>
         <button id="btnTopSelect" class="quick-btn" type="button">重選武將 / 房間 (C)</button>
         <button id="btnTopReset" class="quick-btn" type="button">重置回合 (R)</button>
         <button id="btnTopBox" class="quick-btn" type="button">判定框 (B)</button>
@@ -888,6 +1024,10 @@
 
     <!-- 預留虛擬按鍵操控區 (支援手機觸控滑動搖桿 + 四顆街機按鍵 + 電腦鍵盤提示) -->
     <div class="virtual-controller-deck">
+      <!-- 手機橫版：戰鬥中選單 / 音效 / 全螢幕鍵 -->
+      <button id="btnTouchMenu" class="touch-menu-btn" type="button" aria-label="選單">☰</button>
+      <button id="btnTouchMute" class="touch-menu-btn touch-sub-btn" type="button" aria-label="音效">🔊</button>
+      <button id="btnTouchFs" class="touch-menu-btn touch-fs-btn" type="button" aria-label="全螢幕">⛶</button>
       <!-- 左側 8 向虛擬搖桿 -->
       <div id="dpadZone" class="dpad-zone">
         <div class="dpad-cross">
@@ -938,6 +1078,13 @@
     </div>
   </div>
 
+  <!-- 手機直向時的轉橫提示 -->
+  <div id="rotateHint" class="rotate-hint">
+    <div class="rotate-icon">📱</div>
+    <div>請將手機轉為橫向</div>
+    <div style="font-size:12px; color:#cbbdd6; font-weight:600;">橫向全螢幕遊玩，虛擬按鍵會直接顯示在畫面上</div>
+  </div>
+
   <script>
     // =========================================================================
     // 1. 遊戲基礎設定與裝置偵測 (手機自動強制單機 vs COM)
@@ -949,6 +1096,66 @@
         window.innerWidth <= 820
       );
     }
+
+    // v0.2 手機橫版全螢幕 UI：觸控裝置才啟用 (不以視窗寬度判斷，避免桌機縮小視窗誤觸發)
+    (function setupTouchLandscapeUI() {
+      const isTouchDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+      if (!isTouchDevice) return;
+      document.body.classList.add("touch-ui");
+
+      // 選角畫面顯示時隱藏虛擬按鍵
+      const overlay = document.getElementById("selectOverlay");
+      const syncSelectState = () => {
+        document.body.classList.toggle("in-select", !!overlay && !overlay.classList.contains("hidden"));
+      };
+      if (overlay) {
+        new MutationObserver(syncSelectState).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+      }
+      syncSelectState();
+
+      // 戰鬥中選單鍵 → 等同「重選武將 / 房間」
+      const menuBtn = document.getElementById("btnTouchMenu");
+      if (menuBtn) {
+        menuBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          document.getElementById("btnTopSelect")?.click();
+        });
+      }
+      const fsBtn = document.getElementById("btnTouchFs");
+      if (fsBtn) {
+        fsBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+          if (isFs) {
+            (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+          } else {
+            tryFullscreenLandscape();
+          }
+        });
+      }
+
+      // 第一次觸控時嘗試進入全螢幕並鎖定橫向 (iOS Safari 不支援時自動略過)
+      const tryFullscreenLandscape = () => {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        const lockLandscape = () => {
+          try { screen.orientation?.lock?.("landscape")?.catch?.(() => {}); } catch (_) {}
+        };
+        if (!isFs && req) {
+          try {
+            const p = req.call(el, { navigationUI: "hide" });
+            if (p && p.then) p.then(lockLandscape).catch(() => {});
+            else lockLandscape();
+          } catch (_) {}
+        } else {
+          lockLandscape();
+        }
+      };
+      document.addEventListener("touchend", tryFullscreenLandscape, { passive: true });
+      document.addEventListener("click", tryFullscreenLandscape);
+    })();
 
     const CONFIG = {
       canvasWidth: 960,
@@ -986,7 +1193,18 @@
       roundTransitionDelay: 2.2,
       matchOverDelay: 9.0,       // 三戰兩勝總冠軍勝利畫面展示時間 (可隨時按鍵或點擊跳過)
       heavyShakeDuration: 0.20,
-      heavyShakeIntensity: 9
+      heavyShakeIntensity: 9,
+
+      // ===== v0.2 好友大亂鬥・輕鬆玩法規則 =====
+      dashInvulnTime: 0.08,        // 衝刺起手無敵 (閃招用)
+      knockdownLaunchZ: 300,       // 單發攻擊上拋力 >= 此值即擊倒
+      comboKnockdownHits: 6,       // 連續被打 N 下強制擊倒 (防圍毆無限連)
+      comboResetTime: 0.9,         // 超過此秒數沒被打，連擊計數歸零
+      knockdownDuration: 0.55,     // 倒地時間 (期間無敵)
+      wakeupInvulnTime: 0.6,       // 起身後無敵時間
+      gangUpWindow: 1.2,           // 此秒數內被 2 名以上不同對手打中 = 被圍毆
+      gangUpDamageMult: 0.8,       // 被圍毆時受到傷害 -20%
+      gangUpEnergyMult: 1.5        // 被圍毆時受擊集氣 +50% (翻盤機會)
     };
 
     // COM 難易度參數表 (加入出招冷卻間隔，避免 AI 高頻連發秒殺)
@@ -1231,7 +1449,7 @@
         headTilt: 0,
         squashX: 1, squashY: 1,
         hurtFace: false,
-        attackProgress: 0, isKO: p.state === "ko"
+        attackProgress: 0, isKO: p.state === "ko" || p.state === "knockdown"
       };
 
       if (p.state === "idle") {
@@ -1276,7 +1494,7 @@
         pose.frontArmAngle = -0.9; pose.backArmAngle = -0.6;
         pose.squashX = 0.9; pose.squashY = 1.08;
         pose.hurtFace = true;
-      } else if (p.state === "ko") {
+      } else if (p.state === "ko" || p.state === "knockdown") {
         pose.hurtFace = true;
       }
       return pose;
@@ -1328,6 +1546,7 @@
         lightDesc: "輕：撒幣金錶拳 ｜ 重：天降吊車巨鉤",
         heavyDesc: "★必殺：萬噸天吊・皇室滿天金雨",
         ultTitle: "萬噸天吊・皇室滿天金雨",
+        winQuote: "「能用錢解決的，通通都不是問題！」",
         attacks: {
           light: {
             name: "light", style: "money_scatter",
@@ -1413,6 +1632,7 @@
         lightDesc: "輕：360度觸手旋鞭 ｜ 重：怪獸三段飛撲連咬",
         heavyDesc: "★必殺：深淵狂暴・萬魔六連噬",
         ultTitle: "深淵狂暴・萬魔六連噬",
+        winQuote: "「只是輕輕咬一口，幹嘛這麼激動啦～」",
         attacks: {
           light: {
             name: "light", style: "spin_whip",
@@ -1502,6 +1722,7 @@
         lightDesc: "輕：判官筆墨氣波 ｜ 重：生死簿鎖定天罰",
         heavyDesc: "★必殺：無間煉獄・閻羅萬鬼陣",
         ultTitle: "無間煉獄・閻羅萬鬼陣",
+        winQuote: "「生死簿已簽收，下一位請排隊。」",
         attacks: {
           light: {
             name: "light", style: "ink_wave",
@@ -1568,6 +1789,7 @@
         lightDesc: "輕：保溫杯迴力鏢 ｜ 重：紅毛掃把大風車",
         heavyDesc: "★必殺：家政奧義・終極龍捲大掃除",
         ultTitle: "家政奧義・終極龍捲大掃除",
+        winQuote: "「順手把你們跟戰場一起掃乾淨了！」",
         attacks: {
           light: {
             name: "light", style: "thermos_boomerang",
@@ -1659,18 +1881,19 @@
         lightDesc: "輕：肚皮彈跳頂撞 ｜ 重：破滅一擊大地震",
         heavyDesc: "★必殺：無敵病假單・泰山崩裂震",
         ultTitle: "無敵病假單・泰山崩裂震",
+        winQuote: "「今天先請假睡覺，明天再來打…」",
         attacks: {
           light: {
             name: "light", style: "belly_bump",
             startup: 0.06, active: 0.14, recovery: 0.12,
-            lungeX: 300, superArmor: true,
+            lungeX: 300, // v0.2：移除輕攻擊霸體 (原本三招皆霸體過強)
             width: 68, height: 48, offsetX: 0, offsetZ: 8, depthTolerance: 40,
             damage: 11, hitstun: 0.24, knockbackX: 380, knockbackZ: 140, hitstop: 0.06,
             slashColor: "#ffe5ec"
           },
           heavy: {
             name: "heavy", style: "giga_earthquake",
-            startup: 0.25, active: 0.18, recovery: 0.25,
+            startup: 0.25, active: 0.18, recovery: 0.32, // v0.2：收招 0.25 → 0.32
             centeredHitbox: true, superArmor: true,
             width: 215, height: 70, offsetX: 0, offsetZ: 0, depthTolerance: 66,
             damage: 30, hitstun: 0.42, knockbackX: 720, knockbackZ: 360, hitstop: 0.115,
@@ -1746,6 +1969,7 @@
         lightDesc: "輕：鎮風獅吼功 ｜ 重：彈跳石獅繡球",
         heavyDesc: "★必殺：金門狂風獅吼・天降星隕陣",
         ultTitle: "金門狂風獅吼・天降星隕陣",
+        winQuote: "「膝蓋雖然有點痠，但還是我贏了！」",
         attacks: {
           light: {
             name: "light", style: "lion_roar",
@@ -1895,6 +2119,7 @@
 
           dpadZone.addEventListener("pointerdown", (e) => {
             e.preventDefault();
+            if (activePointerId !== null) return; // 避免第二根手指搶走搖桿
             activePointerId = e.pointerId;
             try { dpadZone.setPointerCapture(e.pointerId); } catch (_) {}
             updateFromPoint(e.clientX, e.clientY);
@@ -1922,6 +2147,9 @@
             e.preventDefault();
             btn.classList.add("pressed");
             this.setVirtualCode(code, true);
+            try {
+              if (navigator.vibrate) navigator.vibrate(id === "vBtnUlt" && btn.classList.contains("ready") ? 28 : 12);
+            } catch (_) {}
           });
           const release = () => {
             btn.classList.remove("pressed");
@@ -1981,10 +2209,17 @@
         this.held.clear();
         if (comPlayer.state === "ko" || targetPlayer.state === "ko") return;
 
+        // 目標倒地或無敵中：拉開一點距離等起身，不浪費衝刺與大招
+        const targetProtected = targetPlayer.state === "knockdown" || targetPlayer.invulnTimer > 0.12;
         const dx = (targetPlayer.x + targetPlayer.width / 2) - (comPlayer.x + comPlayer.width / 2);
         const dy = targetPlayer.y - comPlayer.y;
         const absDx = Math.abs(dx);
         const absDy = Math.abs(dy);
+        if (targetProtected) {
+          if (absDx < 85) this.holdKey(dx > 0 ? comPlayer.controls.left : comPlayer.controls.right);
+          else if (absDx > 160) this.holdKey(dx > 0 ? comPlayer.controls.right : comPlayer.controls.left);
+          return;
+        }
         const heavy = comPlayer.charDef.attacks.heavy;
         const light = comPlayer.charDef.attacks.light;
         const ult = comPlayer.charDef.attacks.ult;
@@ -2303,6 +2538,18 @@
         this.multiHitTimer = 0;
         this.projectileSpawned = false; this.lockedTargetPos = null;
         this.hitFlashTimer = 0; this.animTime = 0;
+        this.comboHits = 0; this.comboTimer = 0; this.pendingKnockdown = false; this.knockdownForceTimer = 0;
+        this.recentAttackers = new Map(); // attacker -> 最後命中時間 (圍毆判定)
+      }
+
+      // 是否處於被圍毆狀態 (gangUpWindow 秒內被 2 名以上不同對手命中)
+      isGangedUp(now) {
+        let count = 0;
+        for (const [atk, t] of this.recentAttackers) {
+          if (now - t <= CONFIG.gangUpWindow) count++;
+          else this.recentAttackers.delete(atk);
+        }
+        return count >= 2;
       }
 
       addEnergy(amount) {
@@ -2334,6 +2581,10 @@
         if (this.hitFlashTimer > 0) this.hitFlashTimer = Math.max(0, this.hitFlashTimer - dt);
         if (this.invulnTimer > 0) this.invulnTimer = Math.max(0, this.invulnTimer - dt);
         if (this.attackCooldownTimer > 0) this.attackCooldownTimer = Math.max(0, this.attackCooldownTimer - dt);
+        if (this.comboHits > 0) {
+          this.comboTimer -= dt;
+          if (this.comboTimer <= 0) this.comboHits = 0;
+        }
 
         if (this.state === "ko") { this.applyPhysics(dt, true, game.currentMap); return; }
 
@@ -2343,7 +2594,26 @@
 
         if (this.state === "hitstun") {
           this.hitstunTimer -= dt;
-          if (this.hitstunTimer <= 0) this.state = this.z > 0 ? "jump" : "idle";
+          if (this.pendingKnockdown) this.knockdownForceTimer -= dt;
+          const forceDown = this.pendingKnockdown && this.knockdownForceTimer <= 0;
+          // 需要擊倒時：等落地且硬直結束 (或被追打超時) 才倒地
+          if ((this.hitstunTimer <= 0 || forceDown) && (!this.pendingKnockdown || this.z <= 0)) {
+            if (this.pendingKnockdown) {
+              this.pendingKnockdown = false;
+              this.state = "knockdown"; this.stateTimer = CONFIG.knockdownDuration;
+              this.comboHits = 0;
+              this.invulnTimer = Math.max(this.invulnTimer, CONFIG.knockdownDuration + CONFIG.wakeupInvulnTime);
+              game.spawnDust(this.x + this.width / 2, this.y, 8);
+            } else {
+              this.state = this.z > 0 ? "jump" : "idle";
+            }
+          }
+          this.applyPhysics(dt, true, game.currentMap);
+          return;
+        }
+        if (this.state === "knockdown") {
+          this.stateTimer -= dt;
+          if (this.stateTimer <= 0) this.state = "idle"; // 起身 (剩餘 wakeupInvulnTime 無敵)
           this.applyPhysics(dt, true, game.currentMap);
           return;
         }
@@ -2441,11 +2711,13 @@
         }
         if (inputSource.wasPressed(this.controls.dash) && this.dashCooldownTimer <= 0) {
           this.state = "dash"; this.stateTimer = CONFIG.dashDuration;
+          this.invulnTimer = Math.max(this.invulnTimer, CONFIG.dashInvulnTime); // 衝刺起手無敵
           this.dashCooldownTimer = CONFIG.dashCooldown; this.afterimageTimer = 0;
           if (dirX !== 0 || dirY !== 0) {
             const len = Math.hypot(dirX, dirY);
             this.dashDirX = dirX / len; this.dashDirY = dirY / len;
           } else { this.dashDirX = this.facing; this.dashDirY = 0; }
+          SFX.play("dash");
           game.spawnDust(this.x + this.width / 2, this.y, 6);
           return;
         }
@@ -2497,13 +2769,13 @@
         }
       }
 
-      takeHit(attackData, attackerFacing, finalDamage) {
+      takeHit(attackData, attackerFacing, finalDamage, hurtEnergyMult = 1.0) {
         const hasArmor = this.currentAttack?.superArmor && (this.state === "attack_startup" || this.state === "attack_active");
         const baseDmg = finalDamage !== undefined ? finalDamage : attackData.damage;
         const dmg = hasArmor ? Math.ceil(baseDmg * 0.5) : baseDmg;
         this.hp = Math.max(0, this.hp - dmg);
         this.hitFlashTimer = 0.12;
-        this.addEnergy(CONFIG.hurtEnergyGain);
+        this.addEnergy(CONFIG.hurtEnergyGain * hurtEnergyMult);
 
         // 設定輕量受擊保護無敵幀，僅防止同一幀多重重疊判定瞬間蒸發，不影響正常連段手感
         if (attackData.multiHitInterval) {
@@ -2520,14 +2792,25 @@
         if (hasArmor) return dmg;
         this.currentAttack = null; this.lockedTargetPos = null;
         this.state = "hitstun"; this.hitstunTimer = attackData.hitstun || 0.2;
+        // 擊倒判定：單發強力上拋，或連續被打達上限 (防無限連段 / 圍毆)
+        this.comboHits += 1; this.comboTimer = CONFIG.comboResetTime;
+        const isLauncher = !attackData.multiHitInterval && (attackData.knockbackZ || 0) >= CONFIG.knockdownLaunchZ;
+        const wasPending = this.pendingKnockdown;
+        // 追打超時後不再被打飛 (防空中無限浮空)，讓角色盡快落地倒地
+        const juggleLocked = wasPending && this.knockdownForceTimer <= 0;
+        if (isLauncher || this.comboHits >= CONFIG.comboKnockdownHits) {
+          if (!wasPending) this.knockdownForceTimer = 0.6; // 最多再被追打 0.6 秒就強制倒地
+          this.pendingKnockdown = true;
+          if (!wasPending && !isLauncher && !(attackData.knockbackZ > 0)) this.vz = 220; // 輕拋起再倒地 (僅第一次)
+        }
         this.vx = attackData.knockbackX > 0 ? attackerFacing * attackData.knockbackX : 0;
         this.vy = 0;
-        if (attackData.knockbackZ > 0) this.vz = attackData.knockbackZ;
+        if (attackData.knockbackZ > 0 && !juggleLocked) this.vz = attackData.knockbackZ;
         return dmg;
       }
 
       applyPhysics(dt, applyGravity = true, mapDef = null) {
-        if (this.state === "hitstun" || this.state === "ko") {
+        if (this.state === "hitstun" || this.state === "ko" || this.state === "knockdown") {
           const friction = this.z === 0 ? CONFIG.groundFriction : CONFIG.airFriction;
           if (this.vx > 0) this.vx = Math.max(0, this.vx - friction * dt);
           else if (this.vx < 0) this.vx = Math.min(0, this.vx + friction * dt);
@@ -2670,6 +2953,154 @@
     }
 
     // =========================================================================
+    // 7.5 街機合成音效 (Web Audio API，零外部音檔) & 聚會掉落道具
+    // =========================================================================
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        try { this.muted = localStorage.getItem("tunshi_muted") === "1"; } catch (_) {}
+      }
+      unlock() {
+        if (this.muted) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!this.ctx) this.ctx = new AC();
+        if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+      }
+      toggleMute() {
+        this.muted = !this.muted;
+        try { localStorage.setItem("tunshi_muted", this.muted ? "1" : "0"); } catch (_) {}
+        return this.muted;
+      }
+      play(kind) {
+        if (this.muted || !this.ctx || this.ctx.state !== "running") return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        if (kind === "light") {
+          osc.type = "triangle"; osc.frequency.setValueAtTime(340, t); osc.frequency.exponentialRampToValueAtTime(110, t + 0.07);
+          gain.gain.setValueAtTime(0.14, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+          osc.start(t); osc.stop(t + 0.07);
+        } else if (kind === "heavy") {
+          osc.type = "sawtooth"; osc.frequency.setValueAtTime(190, t); osc.frequency.exponentialRampToValueAtTime(52, t + 0.16);
+          gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+          osc.start(t); osc.stop(t + 0.16);
+        } else if (kind === "ult") {
+          osc.type = "square"; osc.frequency.setValueAtTime(220, t); osc.frequency.exponentialRampToValueAtTime(880, t + 0.25);
+          gain.gain.setValueAtTime(0.20, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+          osc.start(t); osc.stop(t + 0.28);
+        } else if (kind === "dash") {
+          osc.type = "sine"; osc.frequency.setValueAtTime(420, t); osc.frequency.exponentialRampToValueAtTime(180, t + 0.08);
+          gain.gain.setValueAtTime(0.09, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+          osc.start(t); osc.stop(t + 0.08);
+        } else if (kind === "pickup") {
+          osc.type = "sine"; osc.frequency.setValueAtTime(520, t); osc.frequency.setValueAtTime(780, t + 0.06);
+          gain.gain.setValueAtTime(0.16, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+          osc.start(t); osc.stop(t + 0.16);
+        } else if (kind === "bomb" || kind === "ko") {
+          osc.type = "sawtooth"; osc.frequency.setValueAtTime(130, t); osc.frequency.exponentialRampToValueAtTime(34, t + 0.28);
+          gain.gain.setValueAtTime(0.26, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.30);
+          osc.start(t); osc.stop(t + 0.30);
+        }
+      }
+    }
+    const SFX = new SoundFX();
+
+    class ArenaPickup {
+      constructor({ type, x, groundY, z = 250 }) {
+        this.type = type; // "heal" | "energy" | "bomb"
+        this.x = x;
+        this.groundY = groundY;
+        this.z = z;
+        this.vz = 0;
+        this.fuseTimer = type === "bomb" ? 2.0 : 12.0; // 炸彈落地 2 秒爆；補品 12 秒消失
+        this.active = true;
+        this.animTime = 0;
+      }
+      update(dt, game) {
+        this.animTime += dt;
+        if (this.z > 0) {
+          this.vz -= 520 * dt;
+          this.z = Math.max(0, this.z + this.vz * dt);
+          if (this.z === 0) {
+            this.vz = 0;
+            game.spawnDust(this.x, this.groundY, 6);
+          }
+          return;
+        }
+        this.fuseTimer -= dt;
+        if (this.type === "bomb") {
+          if (this.fuseTimer <= 0) {
+            this.explode(game);
+            this.active = false;
+          }
+          return;
+        }
+        if (this.fuseTimer <= 0) { this.active = false; return; }
+        for (const f of game.activeFighters) {
+          if (f.state === "ko" || f.hp <= 0 || f.z > 55) continue;
+          const fx = f.x + f.width / 2;
+          if (Math.abs(fx - this.x) < 38 && Math.abs(f.y - this.groundY) < 34) {
+            if (this.type === "heal") {
+              const healed = Math.min(f.maxHp - f.hp, 28);
+              f.hp = Math.min(f.maxHp, f.hp + 28);
+              game.floatingTexts.push(new FloatingText(fx, f.getDrawTopY() - 12, healed > 0 ? `+${healed} HP 🍗` : "滿血 🍗", "#52b788", 1.15));
+            } else {
+              f.addEnergy(40);
+              game.floatingTexts.push(new FloatingText(fx, f.getDrawTopY() - 12, "+40% 氣 ⚡", "#ffd166", 1.15));
+            }
+            SFX.play("pickup");
+            game.spawnHitSparks(this.x, this.groundY - 16, false);
+            this.active = false;
+            break;
+          }
+        }
+      }
+      explode(game) {
+        SFX.play("bomb");
+        game.shakeTimer = 0.28; game.shakeIntensity = 13;
+        game.spawnHitSparks(this.x, this.groundY - 18, true);
+        game.starbursts.push(new HitStarburst(this.x, this.groundY - 18, true));
+        game.floatingTexts.push(new FloatingText(this.x, this.groundY - 46, "BOOM!! 💣", "#ff4d6d", 1.45));
+        const bombAtk = { name: "heavy", damage: 20, hitstun: 0.36, knockbackX: 520, knockbackZ: 320 };
+        for (const f of game.activeFighters) {
+          if (f.state === "ko" || f.hp <= 0 || f.invulnTimer > 0) continue;
+          const fx = f.x + f.width / 2;
+          const dist = Math.hypot(fx - this.x, (f.y - this.groundY) * 1.4);
+          if (dist <= 130) {
+            const dir = fx >= this.x ? 1 : -1;
+            const dmg = f.takeHit(bombAtk, dir, 20);
+            game.floatingTexts.push(new FloatingText(fx, f.getDrawTopY() - 8, `-${dmg}`, "#ff4d6d", 1.2));
+          }
+        }
+      }
+      draw(ctx) {
+        const py = this.groundY - this.z;
+        const shadowScale = Math.max(0.4, 1 - this.z / 280);
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.beginPath(); ctx.ellipse(this.x, this.groundY, 18 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+        if (this.z > 0) {
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(this.x - 14, py - 24); ctx.lineTo(this.x, py - 6); ctx.moveTo(this.x + 14, py - 24); ctx.lineTo(this.x, py - 6); ctx.stroke();
+          ctx.fillStyle = "#ffbe0b";
+          ctx.beginPath(); ctx.arc(this.x, py - 24, 15, Math.PI, 0); ctx.fill();
+        }
+        const bob = this.z === 0 ? Math.sin(this.animTime * 6) * 3 : 0;
+        const blink = this.type === "bomb" && this.z === 0 && this.fuseTimer < 0.9 && Math.floor(this.animTime * 16) % 2 === 0;
+        ctx.fillStyle = blink ? "#ff0054" : (this.type === "heal" ? "#2dc653" : (this.type === "energy" ? "#ffd166" : "#343a40"));
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(this.x, py - 14 + bob, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const icon = this.type === "heal" ? "🍗" : (this.type === "energy" ? "⚡" : "💣");
+        ctx.fillText(icon, this.x, py - 13 + bob);
+        ctx.restore();
+      }
+    }
+
+    // =========================================================================
     // 8. 遊戲主控類別 (支援 2～4 人同場大亂鬥 + WebSocket 連線對戰房 + 三戰兩勝制)
     // =========================================================================
     class Game {
@@ -2718,6 +3149,7 @@
 
         this.particles = []; this.afterimages = []; this.projectiles = [];
         this.starbursts = []; this.floatingTexts = [];
+        this.pickups = []; this.pickupSpawnTimer = 8.5;
         this.hitstopTimer = 0; this.shakeTimer = 0; this.shakeIntensity = 0;
 
         // 三戰兩勝與 60 秒計時狀態
@@ -2818,18 +3250,22 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
-      getNearestOpponent(fighter) {
+      getNearestOpponent(fighter, preferVulnerable = false) {
         let best = null;
         let bestDist = Infinity;
+        let fallback = null;
+        let fallbackDist = Infinity;
         for (const other of this.activeFighters) {
           if (other === fighter || other.state === "ko" || other.hp <= 0) continue;
           const d = Math.hypot((other.x + other.width / 2) - (fighter.x + fighter.width / 2), (other.y - fighter.y) * 1.4);
+          if (d < fallbackDist) { fallbackDist = d; fallback = other; }
+          if (preferVulnerable && (other.state === "knockdown" || other.invulnTimer > 0.15)) continue;
           if (d < bestDist) {
             bestDist = d;
             best = other;
           }
         }
-        return best;
+        return best || fallback;
       }
 
       isRageTime() {
@@ -2849,6 +3285,7 @@
         this.hitstopTimer = Math.max(this.hitstopTimer, 0.16);
         this.shakeTimer = 0.34;
         this.shakeIntensity = 15;
+        SFX.play("ult");
         this.spawnHitSparks(fighter.x + fighter.width / 2, fighter.getDrawTopY() + 36, true);
         if (this.playMode === "online" && this.onlineIsHost) {
           this.sendWs({
@@ -3296,6 +3733,26 @@
           this.showBoxes = !this.showBoxes;
         });
 
+        // 音效解鎖與靜音切換
+        const syncMuteButtons = () => {
+          const topMute = document.getElementById("btnTopMute");
+          const touchMute = document.getElementById("btnTouchMute");
+          if (topMute) topMute.textContent = SFX.muted ? "🔇 靜音" : "🔊 音效";
+          if (touchMute) touchMute.textContent = SFX.muted ? "🔇" : "🔊";
+        };
+        syncMuteButtons();
+        const toggleMuteHandler = (e) => {
+          e.currentTarget.blur();
+          SFX.toggleMute();
+          if (!SFX.muted) SFX.unlock();
+          syncMuteButtons();
+        };
+        document.getElementById("btnTopMute")?.addEventListener("click", toggleMuteHandler);
+        document.getElementById("btnTouchMute")?.addEventListener("click", toggleMuteHandler);
+        const unlockAudio = () => SFX.unlock();
+        window.addEventListener("pointerdown", unlockAudio, { passive: true });
+        window.addEventListener("keydown", unlockAudio, { passive: true });
+
         // 在總冠軍勝利畫面點擊 Canvas 可直接開啟下一場對戰
         this.canvas.addEventListener("pointerdown", () => {
           if (this.scene === "fight" && this.matchWinner && this.victoryTime > 1.1) {
@@ -3694,6 +4151,7 @@
         }
         this.particles = []; this.afterimages = []; this.projectiles = [];
         this.starbursts = []; this.floatingTexts = [];
+        this.pickups = []; this.pickupSpawnTimer = 8.5;
         this.hitstopTimer = 0; this.shakeTimer = 0;
         this.roundTimer = CONFIG.roundDuration;
         this.roundIntroTimer = 1.1;
@@ -3723,8 +4181,18 @@
 
       applyHitEffects(attacker, defender, attackData, facing, hitX, hitY) {
         const rageMult = this.isRageTime() ? CONFIG.rageDamageMult : 1.0;
-        const scaledDmg = Math.round((attackData.damage || 5) * rageMult);
-        const actualDmg = defender.takeHit(attackData, facing, scaledDmg);
+        // 反圍毆：短時間內被 2 名以上不同對手打中 → 減傷並加速集氣
+        const now = this.worldTime || 0;
+        if (attacker && defender.recentAttackers) defender.recentAttackers.set(attacker, now);
+        const gangedUp = defender.isGangedUp ? defender.isGangedUp(now) : false;
+        const gangMult = gangedUp ? CONFIG.gangUpDamageMult : 1.0;
+        const scaledDmg = Math.max(1, Math.round((attackData.damage || 5) * rageMult * gangMult));
+        const actualDmg = defender.takeHit(attackData, facing, scaledDmg, gangedUp ? CONFIG.gangUpEnergyMult : 1.0);
+        if (gangedUp && (!defender._lastGangWarn || now - defender._lastGangWarn > 1.2)) {
+          defender._lastGangWarn = now;
+          this.floatingTexts.push(new FloatingText(defender.x + defender.width / 2, defender.getDrawTopY() - 22, "圍毆減傷! 氣+50%", "#00f5d4", 1.05));
+        }
+        SFX.play(defender.hp <= 0 ? "ko" : (attackData.name === "ult" || attackData.name === "ult_proj" ? "ult" : (attackData.name === "heavy" ? "heavy" : "light")));
 
         // 攻擊方獲得集氣 (必殺技與其衍生飛行道具期間不重複回氣)
         if (attackData.name !== "ult" && attackData.name !== "ult_proj") {
@@ -3937,6 +4405,9 @@
             w: p.width,
             h: p.height,
             ang: Number(p.angle.toFixed(2))
+          })),
+          pk: this.pickups.map((pk) => ({
+            t: pk.type, x: Math.round(pk.x), gy: Math.round(pk.groundY), z: Math.round(pk.z), ft: Number(pk.fuseTimer.toFixed(1))
           }))
         };
       }
@@ -3996,6 +4467,14 @@
             });
             dummyProj.angle = pd.ang;
             return dummyProj;
+          });
+        }
+
+        if (Array.isArray(s.pk)) {
+          this.pickups = s.pk.map((pd) => {
+            const pk = new ArenaPickup({ type: pd.t, x: pd.x, groundY: pd.gy, z: pd.z });
+            pk.fuseTimer = pd.ft;
+            return pk;
           });
         }
       }
@@ -4094,7 +4573,7 @@
         // 更新場上所有參戰角色 (2～4 人)
         for (const f of this.activeFighters) {
           if (f.isCOM) {
-            const target = this.getNearestOpponent(f);
+            const target = this.getNearestOpponent(f, true);
             if (target) {
               const ai = f.id === 2 && this.activeFighters.length === 2 ? this.comAI : this.comAIs[f.id];
               ai.update(dt, f, target);
@@ -4114,6 +4593,23 @@
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
           this.projectiles[i].update(dt);
           if (!this.projectiles[i].active) this.projectiles.splice(i, 1);
+        }
+
+        // 聚會掉落道具生成與更新
+        if (this.roundIntroTimer <= 0 && !this.koWinner) {
+          this.pickupSpawnTimer -= dt;
+          if (this.pickupSpawnTimer <= 0 && this.pickups.length < 2) {
+            this.pickupSpawnTimer = 8.5 + Math.random() * 3.5;
+            const types = ["heal", "energy", "bomb"];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const px = 140 + Math.random() * (CONFIG.canvasWidth - 280);
+            const py = this.currentMap.arenaTopY + 18 + Math.random() * (this.currentMap.arenaBottomY - this.currentMap.arenaTopY - 36);
+            this.pickups.push(new ArenaPickup({ type, x: px, groundY: py }));
+          }
+        }
+        for (let i = this.pickups.length - 1; i >= 0; i--) {
+          this.pickups[i].update(dt, this);
+          if (!this.pickups[i].active) this.pickups.splice(i, 1);
         }
 
         if (!this.koWinner) {
@@ -4446,18 +4942,24 @@
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = "900 33px Impact, Microsoft JhengHei, sans-serif";
+        ctx.font = "900 30px Impact, Microsoft JhengHei, sans-serif";
         ctx.strokeStyle = "#3d0814";
         ctx.lineWidth = 6;
         const champLine = `${this.matchWinner}  —  【${champ.charDef.title}】`;
-        ctx.strokeText(champLine, cx, plateY - 8);
+        ctx.strokeText(champLine, cx, plateY - 14);
         ctx.fillStyle = "#ffbe0b";
-        ctx.fillText(champLine, cx, plateY - 8);
+        ctx.fillText(champLine, cx, plateY - 14);
 
-        ctx.font = "bold 14px Microsoft JhengHei, sans-serif";
-        ctx.fillStyle = "#f4efe6";
-        const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊上方「重選武將 / 房間」可更換設定`;
-        ctx.fillText(hintLine, cx, plateY + 23);
+        if (champ.charDef.winQuote) {
+          ctx.font = "bold 16px Microsoft JhengHei, sans-serif";
+          ctx.fillStyle = "#ffd166";
+          ctx.fillText(champ.charDef.winQuote, cx, plateY + 10);
+        }
+
+        ctx.font = "bold 12px Microsoft JhengHei, sans-serif";
+        ctx.fillStyle = "#d9d0e6";
+        const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊「重選武將 / 房間」可更換設定`;
+        ctx.fillText(hintLine, cx, plateY + 29);
         ctx.restore();
 
         ctx.restore();
@@ -4699,6 +5201,7 @@
           const showHeadTag = this.activeFighters.length > 2 || this.playMode === "online";
           const fighters = [...this.activeFighters].sort((a, b) => a.y - b.y);
           for (const f of fighters) f.draw(ctx, this.showBoxes, showHeadTag);
+          for (const pk of this.pickups) pk.draw(ctx);
           for (const proj of this.projectiles) proj.draw(ctx, this.showBoxes);
           for (const p of this.particles) p.draw(ctx);
           for (const s of this.starbursts) s.draw(ctx);
