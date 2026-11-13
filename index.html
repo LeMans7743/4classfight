@@ -1,14 +1,16 @@
 <!-- 已完成多玩家 HUD 調整與線上同步邏輯 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="screen-orientation" content="landscape" />
-  <title>吞食天地・2～4人好友大亂鬥</title>
+  <title>115士長乙4班格鬥大會</title>
   <script src="config.js"></script>
   <style>
     * {
@@ -20,7 +22,8 @@
       -webkit-touch-callout: none;
     }
 
-    html, body {
+    html,
+    body {
       width: 100%;
       height: 100%;
       background: radial-gradient(circle at top, #211829 0%, #0d0a12 75%);
@@ -160,7 +163,8 @@
       flex-wrap: wrap;
     }
 
-    .mode-switch-group, .diff-switch-group {
+    .mode-switch-group,
+    .diff-switch-group {
       display: flex;
       align-items: center;
       gap: 3px;
@@ -177,7 +181,8 @@
       font-weight: 700;
     }
 
-    .mode-btn, .diff-btn {
+    .mode-btn,
+    .diff-btn {
       border: none;
       background: transparent;
       color: #b8acc7;
@@ -302,12 +307,29 @@
       color: #fff;
     }
 
-    .badge.p1 { background: #e63946; }
-    .badge.p2 { background: #3a86ff; }
-    .badge.p3 { background: #2dc653; }
-    .badge.p4 { background: #9b5de5; }
-    .badge.com { background: #7209b7; }
-    .badge.locked { outline: 2px solid #ffbe0b; }
+    .badge.p1 {
+      background: #e63946;
+    }
+
+    .badge.p2 {
+      background: #3a86ff;
+    }
+
+    .badge.p3 {
+      background: #2dc653;
+    }
+
+    .badge.p4 {
+      background: #9b5de5;
+    }
+
+    .badge.com {
+      background: #7209b7;
+    }
+
+    .badge.locked {
+      outline: 2px solid #ffbe0b;
+    }
 
     /* ================= 連線對戰房與 2~4 人大亂鬥大廳介面 ================= */
     .online-lobby-box {
@@ -453,10 +475,21 @@
       background: #281c38;
     }
 
-    .room-slot-card.slot-1 { border-color: #ff4d5a; }
-    .room-slot-card.slot-2 { border-color: #4da3ff; }
-    .room-slot-card.slot-3 { border-color: #2dc653; }
-    .room-slot-card.slot-4 { border-color: #c77dff; }
+    .room-slot-card.slot-1 {
+      border-color: #ff4d5a;
+    }
+
+    .room-slot-card.slot-2 {
+      border-color: #4da3ff;
+    }
+
+    .room-slot-card.slot-3 {
+      border-color: #2dc653;
+    }
+
+    .room-slot-card.slot-4 {
+      border-color: #c77dff;
+    }
 
     .map-bar {
       display: flex;
@@ -523,8 +556,15 @@
       font-size: 12px;
     }
 
-    .select-status.p1 { color: #ff7582; font-weight: 700; }
-    .select-status.p2 { color: #70b5ff; font-weight: 700; }
+    .select-status.p1 {
+      color: #ff7582;
+      font-weight: 700;
+    }
+
+    .select-status.p2 {
+      color: #70b5ff;
+      font-weight: 700;
+    }
 
     .start-btn {
       background: linear-gradient(180deg, #ffbe0b, #fb5607);
@@ -673,7 +713,8 @@
       font-weight: 700;
     }
 
-    .v-btn:active, .v-btn.pressed {
+    .v-btn:active,
+    .v-btn.pressed {
       transform: scale(0.90);
       filter: brightness(1.25);
     }
@@ -725,8 +766,13 @@
     }
 
     @keyframes ultPulse {
-      from { transform: scale(1); }
-      to { transform: scale(1.09); }
+      from {
+        transform: scale(1);
+      }
+
+      to {
+        transform: scale(1.09);
+      }
     }
 
     /* ================= 手機版專屬響應式調整 ================= */
@@ -742,7 +788,8 @@
       }
 
       .pc-keys-row {
-        display: none; /* 手機隱藏鍵盤提示，讓虛擬按鍵區更乾淨 */
+        display: none;
+        /* 手機隱藏鍵盤提示，讓虛擬按鍵區更乾淨 */
       }
 
       .roster-grid {
@@ -751,7 +798,8 @@
       }
 
       .char-moves {
-        display: none; /* 手機小螢幕卡片精簡顯示 */
+        display: none;
+        /* 手機小螢幕卡片精簡顯示 */
       }
 
       .virtual-controller-deck {
@@ -763,17 +811,22 @@
 
     /* 手機橫向模式：緊湊排列 */
     @media (max-height: 520px) and (orientation: landscape) {
-      .title-bar { display: none; }
+      .title-bar {
+        display: none;
+      }
+
       .game-wrapper {
         flex-direction: row;
         align-items: stretch;
         height: 100%;
       }
+
       .stage-container {
         height: 100%;
         width: auto;
         flex: 1;
       }
+
       .virtual-controller-deck {
         width: 210px;
         max-height: none;
@@ -781,7 +834,10 @@
         justify-content: space-around;
         padding: 8px;
       }
-      .deck-center-info { display: none; }
+
+      .deck-center-info {
+        display: none;
+      }
     }
 
     /* ================= v0.2 手機橫版：格鬥全螢幕 + 虛擬按鍵疊在畫面上 ================= */
@@ -790,7 +846,11 @@
       justify-content: center;
       background: #000;
     }
-    body.touch-ui .title-bar { display: none; }
+
+    body.touch-ui .title-bar {
+      display: none;
+    }
+
     body.touch-ui .game-wrapper {
       width: 100vw;
       height: 100vh;
@@ -802,6 +862,7 @@
       align-items: center;
       justify-content: center;
     }
+
     /* 舞台以 16:9 填滿螢幕 (較寬的手機左右留黑邊，按鍵可落在黑邊上) */
     body.touch-ui .stage-container {
       flex: none;
@@ -814,12 +875,14 @@
       border-radius: 0;
       box-shadow: none;
     }
+
     /* 選角畫面在手機上直接使用整個螢幕 */
     body.touch-ui .select-overlay {
       position: fixed;
       inset: 0;
       padding: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
     }
+
     /* 虛擬控制層：全螢幕透明疊加，只有按鍵本身吃觸控 */
     body.touch-ui .virtual-controller-deck {
       position: fixed;
@@ -836,7 +899,11 @@
       pointer-events: none;
       z-index: 20;
     }
-    body.touch-ui .deck-center-info { display: none; }
+
+    body.touch-ui .deck-center-info {
+      display: none;
+    }
+
     body.touch-ui .dpad-zone {
       position: absolute;
       left: calc(env(safe-area-inset-left, 0px) + 22px);
@@ -848,8 +915,15 @@
       box-shadow: none;
       pointer-events: auto;
     }
-    body.touch-ui .dpad-cross { color: rgba(255, 255, 255, 0.45); }
-    body.touch-ui .dpad-stick { opacity: 0.85; }
+
+    body.touch-ui .dpad-cross {
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    body.touch-ui .dpad-stick {
+      opacity: 0.85;
+    }
+
     body.touch-ui .action-buttons-zone {
       position: absolute;
       right: calc(env(safe-area-inset-right, 0px) + 16px);
@@ -858,13 +932,31 @@
       transform-origin: bottom right;
       pointer-events: auto;
     }
-    body.touch-ui .v-btn { opacity: 0.78; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45); }
-    body.touch-ui .v-btn.btn-ult { opacity: 0.5; }
-    body.touch-ui .v-btn.btn-ult.ready { opacity: 1; }
-    @media (max-height: 380px) {
-      body.touch-ui .action-buttons-zone { transform: scale(1); }
-      body.touch-ui .dpad-zone { width: 118px; height: 118px; }
+
+    body.touch-ui .v-btn {
+      opacity: 0.78;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
     }
+
+    body.touch-ui .v-btn.btn-ult {
+      opacity: 0.5;
+    }
+
+    body.touch-ui .v-btn.btn-ult.ready {
+      opacity: 1;
+    }
+
+    @media (max-height: 380px) {
+      body.touch-ui .action-buttons-zone {
+        transform: scale(1);
+      }
+
+      body.touch-ui .dpad-zone {
+        width: 118px;
+        height: 118px;
+      }
+    }
+
     /* 戰鬥中的選單鍵 (回選角 / 房間) */
     .touch-menu-btn {
       display: none;
@@ -882,17 +974,26 @@
       pointer-events: auto;
       cursor: pointer;
     }
+
     .touch-sub-btn {
       top: calc(env(safe-area-inset-top, 0px) + 46px);
       font-size: 15px;
     }
+
     .touch-fs-btn {
       top: calc(env(safe-area-inset-top, 0px) + 86px);
       font-size: 16px;
     }
-    body.touch-ui .touch-menu-btn { display: block; }
+
+    body.touch-ui .touch-menu-btn {
+      display: block;
+    }
+
     /* 選角畫面時隱藏虛擬按鍵，避免擋住卡片 */
-    body.touch-ui.in-select .virtual-controller-deck { display: none; }
+    body.touch-ui.in-select .virtual-controller-deck {
+      display: none;
+    }
+
     /* 直向時提示轉橫 */
     .rotate-hint {
       display: none;
@@ -909,20 +1010,40 @@
       font-weight: 800;
       text-align: center;
     }
-    .rotate-hint .rotate-icon { font-size: 64px; animation: rotateHintSpin 1.6s ease-in-out infinite; }
-    @keyframes rotateHintSpin { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(90deg); } }
+
+    .rotate-hint .rotate-icon {
+      font-size: 64px;
+      animation: rotateHintSpin 1.6s ease-in-out infinite;
+    }
+
+    @keyframes rotateHintSpin {
+
+      0%,
+      30% {
+        transform: rotate(0deg);
+      }
+
+      60%,
+      100% {
+        transform: rotate(90deg);
+      }
+    }
+
     @media (orientation: portrait) {
-      body.touch-ui .rotate-hint { display: flex; }
+      body.touch-ui .rotate-hint {
+        display: flex;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="game-wrapper">
     <div class="title-bar">
-      <h1>吞食天地・2～4人大亂鬥連線版</h1>
+      <h1>115士長乙4班格鬥大會連線版</h1>
       <div class="top-actions">
         <button id="btnTopMute" class="quick-btn" type="button">🔊 音效</button>
-        <button id="btnTopSelect" class="quick-btn" type="button">重選武將 / 房間 (C)</button>
+        <button id="btnTopSelect" class="quick-btn" type="button">重選角色 / 房間 (C)</button>
         <button id="btnTopReset" class="quick-btn" type="button">重置回合 (R)</button>
         <button id="btnTopBox" class="quick-btn" type="button">判定框 (B)</button>
       </div>
@@ -935,7 +1056,7 @@
       <div id="selectOverlay" class="select-overlay">
         <div class="select-top-bar">
           <div class="select-header">
-            <h2>武將與戰場選擇 (支援 2～4 人同場大亂鬥)</h2>
+            <h2>角色與戰場選擇 (支援 2～4 人同場大亂鬥)</h2>
             <p id="selectGuideText">點選卡片選擇 1P 與對手，再按「立即開戰」</p>
           </div>
 
@@ -972,12 +1093,15 @@
             <div class="online-row" style="margin-bottom:5px;">
               <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                 <span id="wsStatusBadge" class="ws-status-badge disconnected">🔴 尚未連線</span>
-                <input id="wsUrlInput" class="online-input" type="text" style="width:155px;" placeholder="ws://localhost:3000" />
+                <input id="wsUrlInput" class="online-input" type="text" style="width:155px;"
+                  placeholder="ws://localhost:3000" />
                 <button id="btnConnectWs" class="online-btn" type="button">連線伺服器</button>
               </div>
               <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                <input id="onlineNicknameInput" class="online-input" type="text" style="width:82px;" maxlength="10" placeholder="你的暱稱" value="猛將" />
-                <input id="onlineRoomIdInput" class="online-input" type="text" style="width:110px;" maxlength="16" placeholder="輸入房號 ID (如 888)" />
+                <input id="onlineNicknameInput" class="online-input" type="text" style="width:82px;" maxlength="10"
+                  placeholder="你的暱稱" value="猛將" />
+                <input id="onlineRoomIdInput" class="online-input" type="text" style="width:110px;" maxlength="16"
+                  placeholder="輸入房號 ID (如 888)" />
                 <button id="btnCreateRoom" class="online-btn primary" type="button">➕ 輸入ID開啟對戰房</button>
                 <button id="btnJoinRoomById" class="online-btn" type="button">🚪 輸入ID加入</button>
               </div>
@@ -995,7 +1119,7 @@
             <div class="online-row">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span id="activeRoomTitle" style="color:#ffd166; font-weight:900; font-size:13px;">🏠 房間 ID：【888】</span>
-                <span id="activeRoomSub" style="color:#b8acc7;">點選下方角色卡可即時更換你的出戰武將！</span>
+                <span id="activeRoomSub" style="color:#b8acc7;">點選下方角色卡可即時更換你的出戰角色！</span>
               </div>
               <div style="display:flex; align-items:center; gap:5px;">
                 <button id="btnAddRoomCom" class="online-btn" type="button">🤖 +加入COM湊人數</button>
@@ -1047,12 +1171,14 @@
           <div class="pc-key-box">
             <strong style="color:#ff6b6b;">1P 鍵盤：</strong>
             移動 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-            跳 <kbd>Space</kbd> 輕 <kbd>F</kbd> 重 <kbd>G</kbd> 衝 <kbd>H</kbd> <strong style="color:#ffd166;">必殺 <kbd>J</kbd></strong>
+            跳 <kbd>Space</kbd> 輕 <kbd>F</kbd> 重 <kbd>G</kbd> 衝 <kbd>H</kbd> <strong style="color:#ffd166;">必殺
+              <kbd>J</kbd></strong>
           </div>
           <div id="p2KeyBox" class="pc-key-box">
             <strong style="color:#66a3ff;">2P 鍵盤：</strong>
             移動 <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>
-            跳 <kbd>Enter</kbd> 輕 <kbd>,</kbd> 重 <kbd>.</kbd> 衝 <kbd>/</kbd> <strong style="color:#ffd166;">必殺 <kbd>;</kbd></strong>
+            跳 <kbd>Enter</kbd> 輕 <kbd>,</kbd> 重 <kbd>.</kbd> 衝 <kbd>/</kbd> <strong style="color:#ffd166;">必殺
+              <kbd>;</kbd></strong>
           </div>
         </div>
       </div>
@@ -1128,7 +1254,7 @@
           e.preventDefault();
           const isFs = document.fullscreenElement || document.webkitFullscreenElement;
           if (isFs) {
-            (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+            (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => { });
           } else {
             tryFullscreenLandscape();
           }
@@ -1141,14 +1267,14 @@
         const req = el.requestFullscreen || el.webkitRequestFullscreen;
         const isFs = document.fullscreenElement || document.webkitFullscreenElement;
         const lockLandscape = () => {
-          try { screen.orientation?.lock?.("landscape")?.catch?.(() => {}); } catch (_) {}
+          try { screen.orientation?.lock?.("landscape")?.catch?.(() => { }); } catch (_) { }
         };
         if (!isFs && req) {
           try {
             const p = req.call(el, { navigationUI: "hide" });
-            if (p && p.then) p.then(lockLandscape).catch(() => {});
+            if (p && p.then) p.then(lockLandscape).catch(() => { });
             else lockLandscape();
-          } catch (_) {}
+          } catch (_) { }
         } else {
           lockLandscape();
         }
@@ -1238,7 +1364,7 @@
         label: "困難",
         reactionMin: 0.16,
         reactionVar: 0.08,
-        attackInterval: 0.44, // 積極壓制但保有合理收招破綻
+        attackInterval: 0.20, // 積極壓制但保有合理收招破綻
         aggression: 0.68,
         ultUseChance: 0.90,   // 滿氣抓準距離施放超必殺
         dodgeChance: 0.52,
@@ -1623,13 +1749,13 @@
       },
       {
         id: "monster_boo",
-        name: "噁心",
+        name: "狗王",
         title: "怪獸布偶・狂暴連咬流",
         photo: "人物角色/噁心.jpg",
         faceCrop: { sx: 0.35, sy: 0.085, sw: 0.30, sh: 0.345 },
         torsoCrop: { sx: 0.36, sy: 0.42, sw: 0.26, sh: 0.42 },
         maxHp: 114, speedMult: 1.14, themeColor: "#9d4edd", // 原 95 x 1.2 = 114
-        lightDesc: "輕：360度觸手旋鞭 ｜ 重：怪獸三段飛撲連咬",
+        lightDesc: "輕：360度觸手旋鞭 ｜ 重：狗狗三段飛撲連咬",
         heavyDesc: "★必殺：深淵狂暴・萬魔六連噬",
         ultTitle: "深淵狂暴・萬魔六連噬",
         winQuote: "「只是輕輕咬一口，幹嘛這麼激動啦～」",
@@ -2121,7 +2247,7 @@
             e.preventDefault();
             if (activePointerId !== null) return; // 避免第二根手指搶走搖桿
             activePointerId = e.pointerId;
-            try { dpadZone.setPointerCapture(e.pointerId); } catch (_) {}
+            try { dpadZone.setPointerCapture(e.pointerId); } catch (_) { }
             updateFromPoint(e.clientX, e.clientY);
           });
 
@@ -2149,7 +2275,7 @@
             this.setVirtualCode(code, true);
             try {
               if (navigator.vibrate) navigator.vibrate(id === "vBtnUlt" && btn.classList.contains("ready") ? 28 : 12);
-            } catch (_) {}
+            } catch (_) { }
           });
           const release = () => {
             btn.classList.remove("pressed");
@@ -2960,18 +3086,18 @@
       constructor() {
         this.ctx = null;
         this.muted = false;
-        try { this.muted = localStorage.getItem("tunshi_muted") === "1"; } catch (_) {}
+        try { this.muted = localStorage.getItem("tunshi_muted") === "1"; } catch (_) { }
       }
       unlock() {
         if (this.muted) return;
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
         if (!this.ctx) this.ctx = new AC();
-        if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+        if (this.ctx.state === "suspended") this.ctx.resume().catch(() => { });
       }
       toggleMute() {
         this.muted = !this.muted;
-        try { localStorage.setItem("tunshi_muted", this.muted ? "1" : "0"); } catch (_) {}
+        try { localStorage.setItem("tunshi_muted", this.muted ? "1" : "0"); } catch (_) { }
         return this.muted;
       }
       play(kind) {
@@ -3208,7 +3334,7 @@
         let resolvedWsUrl = "";
         try {
           resolvedWsUrl = localStorage.getItem("tunshi_tiandi_ws_url") || "";
-        } catch (_) {}
+        } catch (_) { }
         if (!resolvedWsUrl && window.SERVER_CONFIG && window.SERVER_CONFIG.wsUrl) {
           resolvedWsUrl = window.SERVER_CONFIG.wsUrl.trim();
         }
@@ -3335,7 +3461,7 @@
         if (typeof WebSocket === "undefined") return;
         try {
           if (this.ws) {
-            try { this.ws.close(); } catch (_) {}
+            try { this.ws.close(); } catch (_) { }
           }
           if (this.wsStatusBadge) {
             this.wsStatusBadge.className = "ws-status-badge";
@@ -3349,7 +3475,7 @@
             this.wsConnected = true;
             try {
               localStorage.setItem("tunshi_tiandi_ws_url", url);
-            } catch (_) {}
+            } catch (_) { }
             if (this.wsStatusBadge) {
               this.wsStatusBadge.className = "ws-status-badge connected";
               this.wsStatusBadge.textContent = "🟢 已連線大廳";
@@ -3362,7 +3488,7 @@
             try {
               const msg = JSON.parse(ev.data);
               this.handleWsMessage(msg);
-            } catch (_) {}
+            } catch (_) { }
           };
 
           const onDisconnect = () => {
@@ -3376,14 +3502,14 @@
 
           ws.onclose = onDisconnect;
           ws.onerror = onDisconnect;
-        } catch (_) {}
+        } catch (_) { }
       }
 
       sendWs(payload) {
         if (this.ws && this.wsConnected && this.ws.readyState === 1) {
           try {
             this.ws.send(JSON.stringify(payload));
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -5015,7 +5141,7 @@
 
         ctx.font = "bold 12px Microsoft JhengHei, sans-serif";
         ctx.fillStyle = "#d9d0e6";
-        const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊「重選武將 / 房間」可更換設定`;
+        const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊「重選角色 / 房間」可更換設定`;
         ctx.fillText(hintLine, cx, plateY + 29);
         ctx.restore();
 
@@ -5288,4 +5414,5 @@
     });
   </script>
 </body>
+
 </html>
