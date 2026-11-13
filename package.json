@@ -1,7 +1,7 @@
 {
   "name": "tunshi-tiandi-brawl-online",
   "version": "2.0.0",
-  "description": "吞食天地 2~4人大亂鬥連線格鬥伺服器 (零外部依賴，直接執行 node server.js)",
+  "description": "115士長乙4班格鬥大會連線格鬥伺服器 (零外部依賴，直接執行 node server.js)",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"

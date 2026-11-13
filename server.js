@@ -1,5 +1,5 @@
 /**
- * 吞食天地 2~4人大亂鬥 — 連線對戰房與即時大廳伺服器 (server.js)
+ * 115士長乙4班格鬥大會 2~4人大亂鬥 — 連線對戰房與即時大廳伺服器 (server.js)
  * -------------------------------------------------------------------------
  * 零外部套件依賴 (Zero Dependencies)：直接使用 Node.js 內建 http / crypto / fs 模組
  * 啟動方式：
@@ -114,7 +114,7 @@ function sendJson(client, data) {
     const payload = Buffer.from(JSON.stringify(data), "utf8");
     const frame = encodeWsFrame(0x01, payload);
     client.socket.write(frame);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // =========================================================================
@@ -1390,7 +1390,7 @@ server.on("upgrade", (req, socket) => {
           const text = payload.toString("utf8");
           const parsed = JSON.parse(text);
           handleClientMessage(client, parsed);
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   });
@@ -1431,7 +1431,7 @@ setInterval(() => {
   const pingFrame = encodeWsFrame(0x09, Buffer.alloc(0));
   for (const c of clients.values()) {
     if (!c.closed && c.socket && !c.socket.destroyed) {
-      try { c.socket.write(pingFrame); } catch (_) {}
+      try { c.socket.write(pingFrame); } catch (_) { }
     }
   }
 }, 20000).unref();
@@ -1447,7 +1447,7 @@ server.listen(PORT, "0.0.0.0", () => {
     }
   }
   console.log("=============================================================");
-  console.log("🔥 吞食天地 2~4人大亂鬥 — 連線對戰伺服器已啟動！");
+  console.log("🔥 115士長乙4班格鬥大會 — 連線對戰伺服器已啟動！");
   console.log(`👉 本機開啟網址: http://localhost:${PORT}`);
   if (lanUrls.length > 0) {
     console.log(`👉 區網/朋友連線網址: ${lanUrls.join(" 或 ")}`);
