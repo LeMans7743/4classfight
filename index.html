@@ -1058,8 +1058,6 @@
       <div class="top-actions">
         <button id="btnTopMute" class="quick-btn" type="button">🔊 音效</button>
         <button id="btnTopSelect" class="quick-btn" type="button">重選角色 / 房間 (C)</button>
-        <button id="btnTopReset" class="quick-btn" type="button">重置回合 (R)</button>
-        <button id="btnTopBox" class="quick-btn" type="button">判定框 (B)</button>
       </div>
     </div>
 
@@ -2186,7 +2184,7 @@
           "KeyW", "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyT", "KeyY", "KeyJ",
           "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
           "Space", "Enter", "ShiftRight", "Comma", "Period", "Slash", "Semicolon", "KeyM",
-          "KeyC", "KeyR", "KeyB", "Tab"
+          "KeyC", "KeyB", "Tab"
         ]);
         window.addEventListener("keydown", (e) => {
           const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
@@ -3859,20 +3857,23 @@
             this.returnToSelect();
           }
         });
-        document.getElementById("btnTopReset").addEventListener("click", (e) => {
-          e.currentTarget.blur();
-          if (this.scene === "fight") {
-            if (this.playMode === "online") {
-              if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
-            } else {
-              this.startMatch();
+        // 隱藏彩蛋：連續點擊左上角標題 5 下可切換判定框顯示
+        const titleH1 = document.querySelector(".title-bar h1");
+        if (titleH1) {
+          let titleClicks = 0, lastClickMs = 0;
+          titleH1.addEventListener("click", () => {
+            const now = performance.now();
+            titleClicks = (now - lastClickMs < 2000) ? titleClicks + 1 : 1;
+            lastClickMs = now;
+            if (titleClicks >= 5) {
+              titleClicks = 0;
+              this.showBoxes = !this.showBoxes;
+              if (this.scene === "fight") {
+                this.floatingTexts.push(new FloatingText(CONFIG.canvasWidth / 2, 110, `判定框：${this.showBoxes ? "開啟" : "關閉"}`, "#00f5d4", 1.1));
+              }
             }
-          }
-        });
-        document.getElementById("btnTopBox").addEventListener("click", (e) => {
-          e.currentTarget.blur();
-          this.showBoxes = !this.showBoxes;
-        });
+          });
+        }
 
         // 音效解鎖與靜音切換
         const syncMuteButtons = () => {
@@ -4689,11 +4690,15 @@
           }
           return;
         }
-        if (this.input.wasPressed("KeyB")) { this.showBoxes = !this.showBoxes; }
-        if (this.input.wasPressed("KeyR")) {
-          if (this.playMode !== "online" || this.onlineIsHost) {
-            this.startMatch();
-            return;
+        // 隱藏彩蛋：連按 B 鍵 5 下切換判定框顯示
+        if (this.input.wasPressed("KeyB")) {
+          const now = performance.now();
+          this._boxKeyCount = (now - (this._boxKeyLastMs || 0) < 2000) ? (this._boxKeyCount || 0) + 1 : 1;
+          this._boxKeyLastMs = now;
+          if (this._boxKeyCount >= 5) {
+            this._boxKeyCount = 0;
+            this.showBoxes = !this.showBoxes;
+            this.floatingTexts.push(new FloatingText(CONFIG.canvasWidth / 2, 110, `判定框：${this.showBoxes ? "開啟" : "關閉"}`, "#00f5d4", 1.1));
           }
         }
 
