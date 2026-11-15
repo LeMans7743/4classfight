@@ -10,6 +10,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="screen-orientation" content="landscape" />
+  <meta name="theme-color" content="#0d0a12" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
   <title>115士長乙4班格鬥大賽</title>
   <meta name="description" content="115士長乙4班格鬥大賽 — 支援 2～4 人即時連線大亂鬥、三戰兩勝制與手機橫版全螢幕虛擬按鍵操控" />
   <!-- 分享時的主標題 -->
@@ -28,13 +32,23 @@
       touch-action: manipulation;
     }
 
+    input,
+    textarea {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    button {
+      font-family: inherit;
+    }
+
     html,
     body {
       width: 100%;
       height: 100%;
       background: radial-gradient(circle at top, #211829 0%, #0d0a12 75%);
       color: #f4efe6;
-      font-family: "Microsoft JhengHei", "PingFang TC", "Segoe UI", sans-serif;
+      font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC", "Segoe UI", system-ui, sans-serif;
       overflow: hidden;
       touch-action: none;
     }
@@ -122,194 +136,314 @@
       display: block;
     }
 
-    /* ================= 角色與地圖選擇 Overlay ================= */
+    /* ================= 開戰前流程：模式 → 角色 → 房間 (三步驟分頁) ================= */
     .select-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(14, 10, 22, 0.95), rgba(30, 16, 24, 0.97));
+      z-index: 10;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      padding: clamp(8px, 1.5vw, 14px) clamp(10px, 2vw, 18px);
-      z-index: 10;
       gap: 6px;
-      backdrop-filter: blur(4px);
-      overflow-y: auto;
+      padding: clamp(8px, 1.6vmin, 14px) clamp(10px, 2.2vmin, 18px);
+      background: radial-gradient(120% 90% at 50% 0%, #2a1840 0%, #150e20 55%, #0c0812 100%);
+      color: #f4efe6;
+      overflow: hidden;
     }
 
     .select-overlay.hidden {
       display: none;
     }
 
-    .select-top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .select-header h2 {
-      font-size: clamp(16px, 2.2vw, 22px);
-      color: #ffd166;
-      letter-spacing: 2px;
-      text-shadow: 0 2px 0 #5c1810;
-    }
-
-    .select-header p {
-      font-size: 11px;
-      color: #cbbdd6;
-      margin-top: 2px;
-    }
-
-    .select-controls-right {
+    .wz-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .mode-switch-group,
-    .diff-switch-group {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      background: #181220;
-      border: 1px solid #524269;
-      border-radius: 8px;
-      padding: 3px;
-    }
-
-    .diff-label {
-      font-size: 11px;
-      color: #cbbdd6;
-      padding: 0 6px;
-      font-weight: 700;
-    }
-
-    .mode-btn,
-    .diff-btn {
-      border: none;
-      background: transparent;
-      color: #b8acc7;
-      font-family: inherit;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 5px 10px;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.14s ease;
-    }
-
-    .mode-btn.active {
-      background: linear-gradient(180deg, #ffd166, #f77f00);
-      color: #1a1216;
-    }
-
-    .diff-btn.active[data-diff="easy"] {
-      background: #2dc653;
-      color: #0f1f14;
-    }
-
-    .diff-btn.active[data-diff="normal"] {
-      background: #ffbe0b;
-      color: #1a1216;
-    }
-
-    .diff-btn.active[data-diff="hard"] {
-      background: #e63946;
-      color: #ffffff;
-    }
-
-    .roster-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .char-card {
-      position: relative;
-      background: linear-gradient(145deg, #2a2134, #1d1624);
-      border: 2px solid #493c59;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      cursor: pointer;
-      transition: transform 0.12s ease, border-color 0.12s ease;
-      overflow: hidden;
-    }
-
-    .char-card.p1-cursor {
-      border-color: #ff4d5a;
-      box-shadow: 0 0 14px rgba(255, 77, 90, 0.5);
-    }
-
-    .char-card.p2-cursor {
-      border-color: #4da3ff;
-      box-shadow: 0 0 14px rgba(77, 163, 255, 0.5);
-    }
-
-    .char-card.p1-cursor.p2-cursor {
-      border-color: #ffcc4d;
-      box-shadow: -3px 0 12px rgba(255, 77, 90, 0.55), 3px 0 12px rgba(77, 163, 255, 0.55);
-    }
-
-    .char-thumb {
-      width: clamp(44px, 6.5vw, 64px);
-      height: clamp(44px, 6.5vw, 64px);
-      border-radius: 6px;
-      object-fit: cover;
-      object-position: top center;
-      border: 2px solid #6b5b80;
-      background: #17121c;
+      gap: 10px;
       flex-shrink: 0;
+      min-height: 36px;
     }
 
-    .char-info {
+    .wz-back {
+      height: 36px;
+      min-width: 36px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1.5px solid #5b4a75;
+      background: #211830;
+      color: #ffd166;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .wz-back.invisible {
+      display: none;
+    }
+
+    .wz-heading {
       display: flex;
-      flex-direction: column;
-      gap: 1px;
+      align-items: center;
+      gap: 8px;
       min-width: 0;
+      flex: 1;
     }
 
-    .char-name {
-      font-size: clamp(12px, 1.5vw, 15px);
-      font-weight: 800;
-      color: #fff5d6;
+    .wz-step {
+      font-size: 11px;
+      font-weight: 900;
+      color: #1a1216;
+      background: #ffd166;
+      border-radius: 99px;
+      padding: 2px 9px;
+      white-space: nowrap;
     }
 
-    .char-title {
-      font-size: clamp(10px, 1.1vw, 11px);
-      color: #ffb703;
-      font-weight: 700;
+    .wz-heading h2 {
+      font-size: clamp(15px, 4.4vmin, 20px);
+      color: #ffe9a8;
+      letter-spacing: 1px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .char-moves {
-      font-size: clamp(9px, 1vw, 11px);
-      color: #c8bed4;
-      line-height: 1.28;
+    .wz-dots {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .wz-dots i {
+      width: 20px;
+      height: 4px;
+      border-radius: 2px;
+      background: #3b2f4d;
+    }
+
+    .wz-dots i.on {
+      background: #ffd166;
+    }
+
+    .wz-guide {
+      font-size: 11.5px;
+      color: #cbbdd6;
+      min-height: 15px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .wz-guide.warn {
+      color: #ffa3b1;
+      font-weight: 700;
+    }
+
+    .wz-page {
+      flex: 1;
+      min-height: 0;
+      display: none;
+      gap: 10px;
+    }
+
+    .wz-page.active {
+      display: flex;
+    }
+
+    /* ---- 共用按鈕 ---- */
+    .cta-btn {
+      border: none;
+      border-radius: 12px;
+      padding: 8px 18px;
+      min-height: 42px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #1d1206;
+      background: linear-gradient(180deg, #ffd166, #f77f00);
+      box-shadow: 0 3px 0 #9c4a00, 0 6px 16px rgba(247, 127, 0, 0.35);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .cta-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #9c4a00;
+    }
+
+    .cta-btn:disabled {
+      filter: grayscale(0.85) brightness(0.65);
+      box-shadow: 0 3px 0 #3a3a3a;
+      cursor: default;
+      transform: none;
+    }
+
+    .ghost-btn {
+      border: 1.5px solid #6b5890;
+      border-radius: 12px;
+      padding: 8px 14px;
+      min-height: 42px;
+      background: #231a33;
+      color: #e9e2f2;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .ghost-btn:active {
+      background: #3a2b55;
+    }
+
+    /* ---- 第 1 頁：模式 ---- */
+    .wz-page[data-page="mode"] {
+      align-items: stretch;
+      justify-content: center;
+      gap: clamp(8px, 2vw, 16px);
+    }
+
+    .mode-card {
+      --glow: #7b2dd1;
+      flex: 1;
+      max-width: 300px;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 2px solid #4a3b60;
+      background: linear-gradient(160deg, #2c2040, #1a1226);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+
+    .mode-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(90% 65% at 50% 0%, var(--glow), transparent 72%);
+      opacity: 0.6;
+    }
+
+    .mode-card > * {
+      position: relative;
+    }
+
+    .mode-card[data-mode="online"] {
+      --glow: #1d7fd1;
+    }
+
+    .mode-card[data-mode="com"] {
+      --glow: #d1601d;
+    }
+
+    .mode-card:active {
+      transform: scale(0.97);
+      border-color: #ffd166;
+    }
+
+    .mode-card.focus {
+      border-color: #ffd166;
+      box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.3), 0 0 22px rgba(255, 190, 11, 0.35);
+    }
+
+    .mode-icon {
+      font-size: clamp(34px, 12vmin, 60px);
+      line-height: 1.1;
+    }
+
+    .mode-card strong {
+      font-size: clamp(16px, 5vmin, 23px);
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .mode-card em {
+      font-style: normal;
+      font-size: 11.5px;
+      color: #d6cbe3;
+      line-height: 1.45;
+    }
+
+    body.touch-ui .mode-card[data-mode="pvp"] {
+      display: none;
+    }
+
+    /* ---- 第 2 頁：角色 ---- */
+    .roster-grid {
+      flex: 1.5;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 1fr;
+      gap: 8px;
+    }
+
+    .char-card {
+      position: relative;
+      min-height: 0;
+      padding: 0;
+      border-radius: 12px;
+      border: 2px solid #45385a;
+      background: #1b1426 center 18% / cover no-repeat;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-end;
+      color: #fff;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .char-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 45%, rgba(10, 6, 16, 0.93) 100%);
+    }
+
+    .char-card .char-name {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      padding: 4px 8px;
+      font-size: clamp(12px, 3.6vmin, 15px);
+      font-weight: 900;
+      text-align: left;
+      text-shadow: 0 1px 3px #000;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .char-card.selected {
+      border-color: #ffd166;
+      box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.35), 0 0 18px rgba(255, 190, 11, 0.5);
     }
 
     .cursor-badges {
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: 5px;
+      right: 5px;
+      z-index: 1;
       display: flex;
       gap: 3px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .badge {
-      font-size: 9px;
-      font-weight: 800;
-      padding: 2px 5px;
-      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 99px;
       color: #fff;
     }
 
@@ -329,49 +463,257 @@
       background: #9b5de5;
     }
 
-    .badge.com {
-      background: #7209b7;
-    }
-
-    .badge.locked {
-      outline: 2px solid #ffbe0b;
-    }
-
-    /* ================= 連線對戰房與 2~4 人大亂鬥大廳介面 ================= */
-    .online-lobby-box {
-      display: none;
+    .char-detail {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
       flex-direction: column;
       gap: 6px;
-      background: rgba(16, 11, 24, 0.94);
-      border: 1.5px solid #6b4c9a;
-      border-radius: 8px;
-      padding: 7px 10px;
-      font-size: 11px;
+      background: rgba(18, 12, 28, 0.85);
+      border: 1.5px solid #45385a;
+      border-radius: 14px;
+      padding: 10px;
     }
 
-    .online-lobby-box.active {
+    .char-detail-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      touch-action: pan-y;
       display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
 
-    .online-row {
+    .char-detail-name {
+      font-size: clamp(17px, 5.4vmin, 24px);
+      font-weight: 900;
+      color: #ffe9a8;
+      line-height: 1.15;
+    }
+
+    .char-detail-title {
+      font-size: 12px;
+      color: #ffb703;
+      font-weight: 700;
+    }
+
+    .stat-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 6px;
-      flex-wrap: wrap;
+      font-size: 11px;
+      color: #cbbdd6;
+      font-weight: 700;
+    }
+
+    .stat-row b {
+      width: 30px;
+      flex-shrink: 0;
+    }
+
+    .stat-bar {
+      flex: 1;
+      height: 7px;
+      border-radius: 4px;
+      background: #2b2138;
+      overflow: hidden;
+    }
+
+    .stat-bar i {
+      display: block;
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #ffd166, #f77f00);
+    }
+
+    .move-list {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #e2daec;
+    }
+
+    .move-list .ult {
+      color: #ffd166;
+      font-weight: 700;
+    }
+
+    /* ---- 第 3 頁 (連線)：大廳 ---- */
+    .lobby-form {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      touch-action: pan-y;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11px;
+      color: #b8acc7;
+      font-weight: 700;
+    }
+
+    .online-input {
+      width: 100%;
+      min-height: 40px;
+      background: #140e1c;
+      border: 1.5px solid #5c4973;
+      color: #fff;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .online-input:focus {
+      border-color: #ffd166;
+    }
+
+    .lobby-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .lobby-actions > * {
+      flex: 1;
+    }
+
+    .server-settings {
+      font-size: 11px;
+      color: #9a8cb0;
+    }
+
+    .server-settings summary {
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .server-settings-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .server-settings-row .ghost-btn {
+      min-height: 40px;
+    }
+
+    .lobby-rooms {
+      flex: 1.2;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(18, 12, 28, 0.85);
+      border: 1.5px solid #45385a;
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .lobby-rooms h3 {
+      font-size: 13px;
+      color: #ffd166;
+      flex-shrink: 0;
+    }
+
+    .room-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      touch-action: pan-y;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .room-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1.5px solid #5b4a75;
+      background: #241a35;
+      color: #fff;
+      cursor: pointer;
+      text-align: left;
+      flex-shrink: 0;
+    }
+
+    .room-item:active {
+      border-color: #ffd166;
+    }
+
+    .room-item .rid {
+      font-size: 16px;
+      font-weight: 900;
+      color: #ffd166;
+      white-space: nowrap;
+    }
+
+    .room-item .rmeta {
+      flex: 1;
+      min-width: 0;
+      font-size: 11px;
+      color: #cbbdd6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rstat {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    .rstat.waiting {
+      background: rgba(45, 198, 83, 0.18);
+      color: #80ed99;
+    }
+
+    .rstat.fighting {
+      background: rgba(230, 57, 70, 0.18);
+      color: #ff8fa3;
+    }
+
+    .room-empty {
+      color: #9a8cb0;
+      font-size: 12px;
+      margin: auto;
+      text-align: center;
+      line-height: 1.6;
     }
 
     .ws-status-badge {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 2px 8px;
+      padding: 3px 10px;
       border-radius: 99px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 11px;
       background: #2b1d38;
       border: 1px solid #594173;
       color: #e0d4f0;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .ws-status-badge[hidden] {
+      display: none;
     }
 
     .ws-status-badge.connected {
@@ -386,153 +728,92 @@
       color: #ff8fa3;
     }
 
-    .online-input {
-      background: #140e1c;
-      border: 1px solid #5c4973;
-      color: #fff;
-      border-radius: 5px;
-      padding: 4px 8px;
-      font-size: 11px;
-      font-family: inherit;
-      outline: none;
-    }
-
-    .online-input:focus {
-      border-color: #ffd166;
-    }
-
-    .online-btn {
-      border: 1px solid #ffd166;
-      background: linear-gradient(180deg, #3c2854, #261838);
-      color: #ffd166;
-      border-radius: 5px;
-      padding: 4px 9px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.12s ease;
-    }
-
-    .online-btn:hover {
-      background: linear-gradient(180deg, #ffd166, #f77f00);
-      color: #181020;
-    }
-
-    .online-btn.primary {
-      background: linear-gradient(180deg, #00b4d8, #0077b6);
-      border-color: #90e0ef;
-      color: #ffffff;
-    }
-
-    .online-btn.danger {
-      background: linear-gradient(180deg, #e63946, #9d0208);
-      border-color: #ff8fa3;
-      color: #ffffff;
-    }
-
-    .room-list-container {
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      padding: 3px 0;
-      min-height: 34px;
-      align-items: center;
-    }
-
-    .room-item-chip {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      background: linear-gradient(135deg, #2b1e3d, #1c1328);
-      border: 1.5px solid #72519c;
-      border-radius: 6px;
-      padding: 4px 9px;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: all 0.12s ease;
-    }
-
-    .room-item-chip:hover {
-      border-color: #ffd166;
-      transform: translateY(-1px);
-    }
-
-    .room-slots-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-    }
-
-    .room-slot-card {
-      background: #1b1326;
-      border: 1.5px dashed #4a3b5c;
-      border-radius: 6px;
-      padding: 4px 7px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 4px;
-      min-height: 30px;
-    }
-
-    .room-slot-card.filled {
-      border-style: solid;
-      background: #281c38;
-    }
-
-    .room-slot-card.slot-1 {
-      border-color: #ff4d5a;
-    }
-
-    .room-slot-card.slot-2 {
-      border-color: #4da3ff;
-    }
-
-    .room-slot-card.slot-3 {
-      border-color: #2dc653;
-    }
-
-    .room-slot-card.slot-4 {
-      border-color: #c77dff;
-    }
-
-    .map-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    /* ---- 第 3 頁：房間 ---- */
+    .wz-page[data-page="room"] {
+      flex-direction: column;
       gap: 8px;
-      background: rgba(18, 13, 24, 0.88);
-      border: 1px solid #3f344d;
-      border-radius: 6px;
-      padding: 5px 10px;
     }
 
-    .map-bar-label {
-      font-size: 11px;
+    .room-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .room-code {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      background: linear-gradient(135deg, #3a2757, #22173a);
+      border: 1.5px solid #8463c2;
+      border-radius: 12px;
+      padding: 4px 10px;
+    }
+
+    .room-code span {
+      font-size: 10px;
+      color: #b8acc7;
       font-weight: 700;
-      color: #ffd166;
       white-space: nowrap;
+    }
+
+    .room-code strong {
+      font-size: clamp(17px, 5.6vmin, 26px);
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #ffe9a8;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 9em;
+    }
+
+    .mini-btn {
+      min-height: 30px;
+      padding: 2px 10px;
+      border-radius: 8px;
+      border: 1px solid #8463c2;
+      background: rgba(20, 14, 28, 0.6);
+      color: #e9e2f2;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .room-settings {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
     .map-options {
       display: flex;
       gap: 6px;
-      flex: 1;
+      min-width: 0;
       overflow-x: auto;
+      touch-action: pan-x;
     }
 
     .map-chip {
       display: flex;
       align-items: center;
       gap: 5px;
-      background: #272030;
+      min-height: 34px;
+      background: #231a33;
       border: 2px solid #463b54;
-      border-radius: 6px;
-      padding: 3px 8px;
+      border-radius: 10px;
+      padding: 3px 9px;
       cursor: pointer;
-      font-size: 11px;
-      color: #e2daec;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #cfc5dc;
       white-space: nowrap;
     }
 
@@ -540,49 +821,309 @@
       border-color: #ffbe0b;
       background: #3d2e47;
       color: #fff;
-      font-weight: 700;
     }
 
     .map-chip img {
-      width: 26px;
-      height: 16px;
+      width: 34px;
+      height: 20px;
       object-fit: cover;
-      border-radius: 3px;
+      border-radius: 4px;
     }
 
-    .select-footer {
+    .map-options.locked .map-chip {
+      cursor: default;
+    }
+
+    .map-options.locked .map-chip:not(.active) {
+      display: none;
+    }
+
+    .diff-switch-group {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      background: rgba(15, 11, 19, 0.88);
-      border: 1px solid #3f344d;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 12px;
+      gap: 2px;
+      background: #181220;
+      border: 1px solid #524269;
+      border-radius: 10px;
+      padding: 3px;
+      flex-shrink: 0;
     }
 
-    .select-status.p1 {
-      color: #ff7582;
+    .diff-label {
+      font-size: 11px;
+      color: #cbbdd6;
+      padding: 0 5px;
       font-weight: 700;
     }
 
-    .select-status.p2 {
-      color: #70b5ff;
-      font-weight: 700;
-    }
-
-    .start-btn {
-      background: linear-gradient(180deg, #ffbe0b, #fb5607);
-      color: #fff;
-      border: 2px solid #fff3b0;
-      border-radius: 6px;
-      padding: 5px 14px;
-      font-size: 13px;
-      font-weight: 900;
+    .diff-btn {
+      border: none;
+      background: transparent;
+      color: #b8acc7;
+      font-size: 11.5px;
+      font-weight: 800;
+      min-height: 28px;
+      padding: 3px 9px;
+      border-radius: 7px;
       cursor: pointer;
-      box-shadow: 0 0 12px rgba(251, 86, 7, 0.6);
+    }
+
+    .diff-btn.active[data-diff="easy"] {
+      background: #2dc653;
+      color: #0f1f14;
+    }
+
+    .diff-btn.active[data-diff="normal"] {
+      background: #ffbe0b;
+      color: #1a1216;
+    }
+
+    .diff-btn.active[data-diff="hard"] {
+      background: #e63946;
+      color: #ffffff;
+    }
+
+    .room-slots {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .slot-card {
+      --slot: #4a3b5c;
+      position: relative;
+      min-height: 0;
+      min-width: 0;
+      padding: 0;
+      border-radius: 14px;
+      border: 2px solid var(--slot);
+      background: #1b1326;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      color: #fff;
+      text-align: left;
+    }
+
+    .slot-card.s1 {
+      --slot: #ff4d5a;
+    }
+
+    .slot-card.s2 {
+      --slot: #4da3ff;
+    }
+
+    .slot-card.s3 {
+      --slot: #2dc653;
+    }
+
+    .slot-card.s4 {
+      --slot: #c77dff;
+    }
+
+    .slot-card.me {
+      box-shadow: 0 0 16px var(--slot);
+    }
+
+    .slot-card.empty {
+      border-style: dashed;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: #8f81a6;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(27, 19, 38, 0.6);
+      text-align: center;
+    }
+
+    button.slot-card.empty {
+      cursor: pointer;
+    }
+
+    button.slot-card.empty:active {
+      background: rgba(60, 42, 84, 0.7);
+    }
+
+    .slot-card.empty .plus {
+      font-size: 28px;
+      line-height: 1;
+      color: var(--slot);
+    }
+
+    .slot-photo {
+      position: absolute;
+      inset: 0;
+      background: center 18% / cover no-repeat;
+    }
+
+    .slot-photo::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(10, 6, 16, 0.1) 25%, rgba(10, 6, 16, 0.78) 62%, rgba(10, 6, 16, 0.97) 100%);
+    }
+
+    .slot-card.offline .slot-photo {
+      filter: grayscale(1) brightness(0.55);
+    }
+
+    .slot-tag {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 1;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: var(--slot);
+      color: #fff;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+    }
+
+    .slot-flags {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+    }
+
+    .slot-flag {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 99px;
+      background: rgba(0, 0, 0, 0.62);
+      color: #ffd166;
       white-space: nowrap;
+    }
+
+    .slot-info {
+      position: relative;
+      z-index: 1;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .slot-name {
+      font-size: clamp(12px, 3.8vmin, 15px);
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px #000;
+    }
+
+    .slot-char {
+      font-size: 11px;
+      color: #ffd166;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .slot-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 3px;
+    }
+
+    .slot-actions button {
+      flex: 1;
+      min-width: 0;
+      min-height: 30px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(20, 14, 28, 0.78);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .slot-actions button:active {
+      background: rgba(255, 209, 102, 0.35);
+    }
+
+    .room-bottom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .room-hint {
+      flex: 1;
+      min-width: 0;
+      font-size: 11.5px;
+      color: #cbbdd6;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cta-btn.start {
+      min-width: 150px;
+      font-size: 16px;
+    }
+
+    /* 矮螢幕 (手機橫向 + 瀏覽器網址列) 再收緊一點 */
+    @media (max-height: 340px) {
+      .select-overlay {
+        gap: 4px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .wz-header {
+        min-height: 32px;
+      }
+
+      .wz-back {
+        height: 32px;
+      }
+
+      .cta-btn,
+      .ghost-btn {
+        min-height: 38px;
+      }
+
+      .mode-card em {
+        font-size: 10.5px;
+      }
+
+      .slot-actions button {
+        min-height: 28px;
+      }
+    }
+
+    /* 窄螢幕 (直向或小視窗)：房間席位改 2x2，設定列可換行 */
+    @media (max-width: 560px) {
+      .room-slots {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .room-top {
+        flex-wrap: wrap;
+      }
+
+      .wz-dots {
+        display: none;
+      }
     }
 
     /* ================= 預留虛擬按鍵操控區 (Virtual Controller Deck) ================= */
@@ -805,16 +1346,6 @@
       .pc-keys-row {
         display: none;
         /* 手機隱藏鍵盤提示，讓虛擬按鍵區更乾淨 */
-      }
-
-      .roster-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-      }
-
-      .char-moves {
-        display: none;
-        /* 手機小螢幕卡片精簡顯示 */
       }
 
       .virtual-controller-deck {
@@ -1065,97 +1596,112 @@
     <div class="stage-container">
       <canvas id="gameCanvas" width="960" height="540"></canvas>
 
-      <!-- 角色與地圖選擇介面 -->
+      <!-- 開戰前流程：1 模式 → 2 角色 → 3 房間 -->
       <div id="selectOverlay" class="select-overlay">
-        <div class="select-top-bar">
-          <div class="select-header">
-            <h2>角色與戰場選擇 (支援 2～4 人同場大亂鬥)</h2>
-            <p id="selectGuideText">點選卡片選擇 1P 與對手，再按「立即開戰」</p>
+        <header class="wz-header">
+          <button id="wzBack" class="wz-back invisible" type="button">‹ 返回</button>
+          <div class="wz-heading">
+            <span id="wzStep" class="wz-step">1 / 3</span>
+            <h2 id="wzTitle">選擇遊戲模式</h2>
           </div>
+          <span id="wsStatusBadge" class="ws-status-badge disconnected" hidden>🔴 尚未連線</span>
+          <div id="wzDots" class="wz-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        </header>
+        <p id="selectGuideText" class="wz-guide"></p>
 
-          <div class="select-controls-right">
-            <!-- 對戰模式切換 -->
-            <div id="modeSwitchGroup" class="mode-switch-group">
-              <button id="btnModeCom" class="mode-btn active" type="button">單機 vs COM</button>
-              <button id="btnModePvp" class="mode-btn" type="button">雙人同機 PVP</button>
-              <button id="btnModeOnline" class="mode-btn" type="button">🌐 連線對戰房 (2~4人)</button>
+        <!-- 第 1 頁：選模式 -->
+        <section class="wz-page active" data-page="mode">
+          <button class="mode-card" data-mode="online" type="button">
+            <span class="mode-icon">🌐</span>
+            <strong>連線對戰</strong>
+            <em>2～4 人即時亂鬥<br>開房間邀朋友加入</em>
+          </button>
+          <button class="mode-card" data-mode="com" type="button">
+            <span class="mode-icon">🤖</span>
+            <strong>單機挑戰</strong>
+            <em>對戰 1～3 名電腦<br>三種難度</em>
+          </button>
+          <button class="mode-card" data-mode="pvp" type="button">
+            <span class="mode-icon">🎮</span>
+            <strong>雙人同機</strong>
+            <em>兩人共用一個鍵盤<br>WASD 對 方向鍵</em>
+          </button>
+        </section>
+
+        <!-- 第 2 頁：選角色 -->
+        <section class="wz-page" data-page="char">
+          <div id="rosterGrid" class="roster-grid"></div>
+          <aside class="char-detail">
+            <div class="char-detail-body">
+              <div id="charDetailName" class="char-detail-name"></div>
+              <div id="charDetailTitle" class="char-detail-title"></div>
+              <div class="stat-row"><b>體力</b>
+                <div class="stat-bar"><i id="charStatHp"></i></div>
+              </div>
+              <div class="stat-row"><b>速度</b>
+                <div class="stat-bar"><i id="charStatSpeed"></i></div>
+              </div>
+              <div id="charDetailMoves" class="move-list"></div>
             </div>
+            <button id="btnCharNext" class="cta-btn" type="button">下一步 ›</button>
+          </aside>
+        </section>
 
-            <!-- 單機大亂鬥總人數選擇 (2~4人) -->
-            <div id="brawlCountGroup" class="diff-switch-group">
-              <span class="diff-label">人數:</span>
-              <button class="diff-btn count-btn active" data-count="2" type="button">2人(1v1)</button>
-              <button class="diff-btn count-btn" data-count="3" type="button">3人亂鬥</button>
-              <button class="diff-btn count-btn" data-count="4" type="button">4人亂鬥</button>
+        <!-- 第 3 頁 (連線)：大廳，建立或加入房間 -->
+        <section class="wz-page" data-page="lobby">
+          <div class="lobby-form">
+            <label class="field">你的暱稱
+              <input id="onlineNicknameInput" class="online-input" type="text" maxlength="10" autocomplete="off"
+                placeholder="例如：猛將" />
+            </label>
+            <label class="field">房號（建立時可留空，自動產生）
+              <input id="onlineRoomIdInput" class="online-input" type="text" maxlength="12" autocomplete="off"
+                inputmode="numeric" placeholder="例如：888" />
+            </label>
+            <div class="lobby-actions">
+              <button id="btnCreateRoom" class="cta-btn" type="button">建立房間</button>
+              <button id="btnJoinRoomById" class="ghost-btn" type="button">用房號加入</button>
             </div>
+            <details class="server-settings">
+              <summary>伺服器設定（一般不用改）</summary>
+              <div class="server-settings-row">
+                <input id="wsUrlInput" class="online-input" type="text" autocomplete="off"
+                  placeholder="wss://你的伺服器網址" />
+                <button id="btnConnectWs" class="ghost-btn" type="button">重新連線</button>
+              </div>
+            </details>
+          </div>
+          <div class="lobby-rooms">
+            <h3>📡 公開房間（點一下直接加入）</h3>
+            <div id="onlineRoomList" class="room-list"></div>
+          </div>
+        </section>
 
-            <!-- COM 難易度選擇 -->
-            <div id="diffSwitchGroup" class="diff-switch-group">
-              <span class="diff-label">COM:</span>
-              <button class="diff-btn active" data-diff="normal" type="button">普通</button>
-              <button class="diff-btn" data-diff="easy" type="button">簡單</button>
-              <button class="diff-btn" data-diff="hard" type="button">困難</button>
+        <!-- 第 3 頁：房間 (連線房 / 單機房共用) -->
+        <section class="wz-page" data-page="room">
+          <div class="room-top">
+            <div class="room-code">
+              <span id="roomCodeLabel">房號</span>
+              <strong id="roomCodeText">—</strong>
+              <button id="btnCopyRoom" class="mini-btn" type="button">複製</button>
+            </div>
+            <div class="room-settings">
+              <div id="mapOptions" class="map-options"></div>
+              <div id="diffSwitchGroup" class="diff-switch-group">
+                <span class="diff-label">電腦</span>
+                <button class="diff-btn" data-diff="easy" type="button">簡單</button>
+                <button class="diff-btn active" data-diff="normal" type="button">普通</button>
+                <button class="diff-btn" data-diff="hard" type="button">困難</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <!-- 🌐 連線對戰房大廳與房間面板 -->
-        <div id="onlineLobbyPanel" class="online-lobby-box">
-          <!-- 尚未進入房間：輸入 ID 開房 + 公開房間即時列表 -->
-          <div id="onlineLobbyBrowser">
-            <div class="online-row" style="margin-bottom:5px;">
-              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                <span id="wsStatusBadge" class="ws-status-badge disconnected">🔴 尚未連線</span>
-                <input id="wsUrlInput" class="online-input" type="text" style="width:155px;"
-                  placeholder="ws://localhost:3000" />
-                <button id="btnConnectWs" class="online-btn" type="button">連線伺服器</button>
-              </div>
-              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                <input id="onlineNicknameInput" class="online-input" type="text" style="width:82px;" maxlength="10"
-                  placeholder="你的暱稱" value="猛將" />
-                <input id="onlineRoomIdInput" class="online-input" type="text" style="width:110px;" maxlength="16"
-                  placeholder="輸入房號 ID (如 888)" />
-                <button id="btnCreateRoom" class="online-btn primary" type="button">➕ 輸入ID開啟對戰房</button>
-                <button id="btnJoinRoomById" class="online-btn" type="button">🚪 輸入ID加入</button>
-              </div>
-            </div>
-            <div class="online-row">
-              <span style="color:#ffd166; font-weight:700; white-space:nowrap;">📡 公開對戰房列表 (點選直接加入)：</span>
-              <div id="onlineRoomList" class="room-list-container">
-                <span style="color:#9a8cb0;">目前尚無公開房間，請在上方輸入 ID 開啟第一個對戰房！</span>
-              </div>
-            </div>
+          <div id="roomSlots" class="room-slots"></div>
+          <div class="room-bottom">
+            <button id="btnChangeChar" class="ghost-btn" type="button">換角色</button>
+            <span id="roomHint" class="room-hint"></span>
+            <button id="btnStartMatch" class="cta-btn start" type="button">開戰！</button>
           </div>
-
-          <!-- 已在房間內：顯示房號 ID 與 1P~4P 參戰席位 -->
-          <div id="onlineRoomInside" style="display:none; flex-direction:column; gap:5px;">
-            <div class="online-row">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span id="activeRoomTitle" style="color:#ffd166; font-weight:900; font-size:13px;">🏠 房間 ID：【888】</span>
-                <span id="activeRoomSub" style="color:#b8acc7;">點選下方角色卡可即時更換你的出戰角色！</span>
-              </div>
-              <div style="display:flex; align-items:center; gap:5px;">
-                <button id="btnAddRoomCom" class="online-btn" type="button">🤖 +加入COM湊人數</button>
-                <button id="btnRemoveRoomCom" class="online-btn" type="button">-移除COM</button>
-                <button id="btnLeaveRoom" class="online-btn danger" type="button">🚪 離開房間</button>
-              </div>
-            </div>
-            <div id="roomSlotsBar" class="room-slots-bar"></div>
-          </div>
-        </div>
-
-        <div id="rosterGrid" class="roster-grid"></div>
-
-        <div class="map-bar">
-          <span class="map-bar-label">戰場地圖：</span>
-          <div id="mapOptions" class="map-options"></div>
-        </div>
-
-        <div class="select-footer">
-          <span id="p1SelectStatus" class="select-status p1">1P 選擇中...</span>
-          <button id="btnStartMatch" class="start-btn" type="button">立即開戰 START!</button>
-          <span id="p2SelectStatus" class="select-status p2">COM 選擇中...</span>
-        </div>
+        </section>
       </div>
     </div>
 
@@ -1228,19 +1774,18 @@
     // =========================================================================
     // 1. 遊戲基礎設定與裝置偵測 (手機自動強制單機 vs COM)
     // =========================================================================
-    function detectMobileDevice() {
-      return (
-        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-        window.innerWidth <= 820
-      );
-    }
+// 單一判斷來源：是否為觸控裝置 (手機 / 平板)。不看視窗寬度，桌機縮小視窗不會被誤判成手機。
+    const IS_TOUCH_DEVICE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+      !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+    // 遊戲邏輯固定步長 (秒)：不論 60Hz / 90Hz / 120Hz 螢幕，速度與判定都一致
+    const FIXED_STEP = 1 / 60;
+    // 畫布實際解析度倍率 (依螢幕像素密度調整，避免高解析螢幕上模糊)
+    let RENDER_SCALE = 1;
 
     // v0.2 手機橫版全螢幕 UI：觸控裝置才啟用 (不以視窗寬度判斷，避免桌機縮小視窗誤觸發)
     (function setupTouchLandscapeUI() {
-      const isTouchDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-      if (!isTouchDevice) return;
+      if (!IS_TOUCH_DEVICE) return;
       document.body.classList.add("touch-ui");
 
       // 選角畫面顯示時隱藏虛擬按鍵
@@ -1262,7 +1807,11 @@
         });
       }
       const fsBtn = document.getElementById("btnTouchFs");
-      if (fsBtn) {
+      // iPhone Safari 沒有 Fullscreen API：隱藏無效的按鈕 (改用「加入主畫面」全螢幕遊玩)
+      const canFullscreen = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+      if (fsBtn && !canFullscreen) {
+        fsBtn.style.display = "none";
+      } else if (fsBtn) {
         fsBtn.addEventListener("click", (e) => {
           e.preventDefault();
           const isFs = document.fullscreenElement || document.webkitFullscreenElement;
@@ -1408,7 +1957,7 @@
         label: "困難",
         reactionMin: 0.16,
         reactionVar: 0.08,
-        attackInterval: 0.20, // 積極壓制但保有合理收招破綻
+        attackInterval: 0.44, // 積極壓制但保有合理收招破綻 (與連線伺服器一致)
         aggression: 0.68,
         ultUseChance: 0.90,   // 滿氣抓準距離施放超必殺
         dodgeChance: 0.52,
@@ -1420,6 +1969,7 @@
     const OUTLINE = "#16111c";
     const IMAGE_CACHE = new Map();
     const CROP_CANVAS_CACHE = new Map();
+    const SHADE_GRADIENT_CACHE = new Map(); // 色塊明暗漸層快取 (key: 區塊座標與尺寸)
 
     function getCachedImage(src) {
       if (!src) return null;
@@ -1431,83 +1981,72 @@
       return IMAGE_CACHE.get(src);
     }
 
-    function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse = false) {
+function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse = false) {
       if (!crop || dw <= 0 || dh <= 0) return;
       const img = getCachedImage(src);
       const isReady = img && img.complete && img.naturalWidth > 0;
+      const pad = 6;
+      const tracePath = (c, x, y) => {
+        c.beginPath();
+        if (isEllipse) c.ellipse(x + dw / 2, y + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+        else c.roundRect(x, y, dw, dh, radius);
+      };
 
-      // 離屏 Canvas 快取：將高解析度原始照片預先裁切並繪製好邊框，大幅降低每幀 GPU/CPU 裁切負擔
-      if (isReady && typeof document !== "undefined" && document.createElement) {
-        const cacheKey = `${src}|${dw}|${dh}|${radius}|${isEllipse ? 1 : 0}|${crop.sx},${crop.sy},${crop.sw},${crop.sh}`;
+      // 離屏 Canvas 快取：依目前畫布解析度預先裁切、打光、描邊，每幀只需貼一張圖
+      if (isReady) {
+        const S = RENDER_SCALE;
+        const cacheKey = `${src}|${dw}|${dh}|${radius}|${isEllipse ? 1 : 0}|${S}|${crop.sx},${crop.sy},${crop.sw},${crop.sh}`;
         let cachedCanvas = CROP_CANVAS_CACHE.get(cacheKey);
         if (!cachedCanvas) {
-          const pad = 4;
           const off = document.createElement("canvas");
-          off.width = dw + pad * 2;
-          off.height = dh + pad * 2;
+          off.width = Math.ceil((dw + pad * 2) * S);
+          off.height = Math.ceil((dh + pad * 2) * S);
           const octx = off.getContext("2d");
           if (octx) {
-            octx.save();
-            octx.beginPath();
+            octx.scale(S, S);
+            octx.imageSmoothingQuality = "high";
+            // 貼紙風白邊 (頭像)
             if (isEllipse) {
-              octx.ellipse(pad + dw / 2, pad + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
-            } else {
-              octx.roundRect(pad, pad, dw, dh, radius);
+              tracePath(octx, pad, pad);
+              octx.strokeStyle = "rgba(255, 255, 255, 0.92)";
+              octx.lineWidth = 6;
+              octx.stroke();
             }
+            octx.save();
+            tracePath(octx, pad, pad);
             octx.clip();
             const iw = img.naturalWidth;
             const ih = img.naturalHeight;
             octx.drawImage(img, crop.sx * iw, crop.sy * ih, crop.sw * iw, crop.sh * ih, pad, pad, dw, dh);
+            // 左上打亮、右下壓暗，讓照片貼片有立體感
+            const shade = octx.createLinearGradient(pad, pad, pad + dw, pad + dh);
+            shade.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+            shade.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+            shade.addColorStop(1, "rgba(10, 4, 20, 0.30)");
+            octx.fillStyle = shade;
+            octx.fillRect(pad, pad, dw, dh);
             octx.restore();
 
-            octx.save();
-            octx.beginPath();
-            if (isEllipse) {
-              octx.ellipse(pad + dw / 2, pad + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
-            } else {
-              octx.roundRect(pad, pad, dw, dh, radius);
-            }
+            tracePath(octx, pad, pad);
             octx.strokeStyle = OUTLINE;
             octx.lineWidth = 2.4;
             octx.stroke();
-            octx.restore();
 
             cachedCanvas = off;
             CROP_CANVAS_CACHE.set(cacheKey, cachedCanvas);
           }
         }
         if (cachedCanvas) {
-          ctx.drawImage(cachedCanvas, dx - 4, dy - 4);
+          ctx.drawImage(cachedCanvas, dx - pad, dy - pad, dw + pad * 2, dh + pad * 2);
           return;
         }
       }
 
+      // 圖片尚未載入：先畫膚色佔位
       ctx.save();
-      ctx.beginPath();
-      if (isEllipse) {
-        ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
-      } else {
-        ctx.roundRect(dx, dy, dw, dh, radius);
-      }
-      ctx.clip();
-
-      if (isReady) {
-        const iw = img.naturalWidth;
-        const ih = img.naturalHeight;
-        ctx.drawImage(img, crop.sx * iw, crop.sy * ih, crop.sw * iw, crop.sh * ih, dx, dy, dw, dh);
-      } else {
-        ctx.fillStyle = "#d4a373";
-        ctx.fill();
-      }
-      ctx.restore();
-
-      ctx.save();
-      ctx.beginPath();
-      if (isEllipse) {
-        ctx.ellipse(dx + dw / 2, dy + dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
-      } else {
-        ctx.roundRect(dx, dy, dw, dh, radius);
-      }
+      tracePath(ctx, dx, dy);
+      ctx.fillStyle = "#d4a373";
+      ctx.fill();
       ctx.strokeStyle = OUTLINE;
       ctx.lineWidth = 2.4;
       ctx.stroke();
@@ -1519,6 +2058,21 @@
       ctx.roundRect(x, y, w, h, r);
       ctx.fillStyle = fillStyle;
       ctx.fill();
+      // 左上亮、右下暗的漸層，讓手腳與服裝色塊有體積感
+      if (w > 5 && h > 5) {
+        const key = `${x}|${y}|${w}|${h}`;
+        let shade = SHADE_GRADIENT_CACHE.get(key);
+        if (!shade) {
+          shade = ctx.createLinearGradient(x, y, x + w, y + h);
+          shade.addColorStop(0, "rgba(255, 255, 255, 0.24)");
+          shade.addColorStop(0.45, "rgba(255, 255, 255, 0)");
+          shade.addColorStop(1, "rgba(0, 0, 0, 0.30)");
+          if (SHADE_GRADIENT_CACHE.size > 400) SHADE_GRADIENT_CACHE.clear();
+          SHADE_GRADIENT_CACHE.set(key, shade);
+        }
+        ctx.fillStyle = shade;
+        ctx.fill();
+      }
       if (strokeWidth > 0) {
         ctx.strokeStyle = OUTLINE;
         ctx.lineWidth = strokeWidth;
@@ -2120,7 +2674,7 @@
             ctx.beginPath(); ctx.ellipse(0, 0, r * 0.65, 18, 0, 0, Math.PI * 2); ctx.stroke();
             if (isUlt) {
               ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 3;
-              ctx.font = "900 24px Microsoft JhengHei, sans-serif";
+              ctx.font = "900 24px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
               ctx.strokeText("准假!!", -28, -96 - anim.attackProgress * 18);
               ctx.fillText("准假!!", -28, -96 - anim.attackProgress * 18);
             }
@@ -2197,7 +2751,7 @@
             ctx.beginPath(); ctx.arc(38, -42, r, -0.85, 0.85); ctx.stroke();
             ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(48, -42, r * 0.72, -0.75, 0.75); ctx.stroke();
-            ctx.fillStyle = "#ffd166"; ctx.font = "900 24px Microsoft JhengHei, sans-serif";
+            ctx.fillStyle = "#ffd166"; ctx.font = "900 24px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
             ctx.fillText(isUlt ? "鎮煞狂風!!" : "風!", 42 + anim.attackProgress * 24, -36);
             ctx.restore();
           }
@@ -2515,7 +3069,7 @@
       draw(ctx) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
-        ctx.font = `900 ${Math.round(18 * this.scale)}px Impact, sans-serif`;
+        ctx.font = `900 ${Math.round(18 * this.scale)}px Impact, Arial Black, sans-serif`;
         ctx.textAlign = "center";
         ctx.strokeStyle = "#16111c"; ctx.lineWidth = 4;
         ctx.strokeText(this.text, this.x, this.y);
@@ -2600,7 +3154,7 @@
           ctx.beginPath(); ctx.arc(-10, 0, 24, -0.9, 0.9); ctx.stroke();
           ctx.strokeStyle = "#14101a"; ctx.lineWidth = 4;
           ctx.beginPath(); ctx.arc(-6, 0, 24, -0.8, 0.8); ctx.stroke();
-          ctx.fillStyle = "#fff"; ctx.font = "900 16px Microsoft JhengHei, sans-serif";
+          ctx.fillStyle = "#fff"; ctx.font = "900 16px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.fillText("判", -6, 6);
         } else if (this.projType === "boomerang") {
           ctx.translate(cx, cy); ctx.rotate(this.angle * 1.4);
@@ -2624,27 +3178,6 @@
     /**
      * 遠端連線玩家輸入代理器 (將網路傳來的標準動作鍵轉換為 Player 可讀的 InputSource)
      */
-    class RemoteInputController {
-      constructor() {
-        this.held = new Set();
-        this.pressed = new Set();
-      }
-      applyNetworkPacket(heldArr, pressedArr) {
-        this.held.clear();
-        if (Array.isArray(heldArr)) {
-          for (const k of heldArr) this.held.add(k);
-        }
-        if (Array.isArray(pressedArr)) {
-          for (const k of pressedArr) this.pressed.add(k);
-        }
-      }
-      endFrame() {
-        this.pressed.clear();
-      }
-      isHeld(codes) { return Array.isArray(codes) ? codes.some((c) => this.held.has(c)) : this.held.has(codes); }
-      wasPressed(codes) { return Array.isArray(codes) ? codes.some((c) => this.pressed.has(c)) : this.pressed.has(codes); }
-    }
-
     const CANONICAL_NET_CONTROLS = {
       up: "ACT_UP",
       down: "ACT_DOWN",
@@ -3028,18 +3561,57 @@
           ctx.restore();
         }
 
+// 柔邊地面陰影 (跳得越高越小越淡)
         const shadowScale = Math.max(0.45, 1 - this.z / 260);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-        ctx.beginPath(); ctx.ellipse(centerX, this.y, (this.width * 0.56) * shadowScale, 9 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save();
+        ctx.translate(centerX, this.y);
+        ctx.scale(1, 0.3);
+        const shadowR = this.width * 0.66 * shadowScale;
+        const shadowGrad = ctx.createRadialGradient(0, 0, shadowR * 0.15, 0, 0, shadowR);
+        shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${0.55 * shadowScale})`);
+        shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = shadowGrad;
+        ctx.beginPath(); ctx.arc(0, 0, shadowR, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
 
-        // 角色腳下 P1~P4 專屬色彩光圈 (在多人亂鬥中清楚辨識)
-        if (showHeadTag && this.state !== "ko") {
+        // 腳下 1P~4P 專屬色光圈：半透明光盤 + 外發光 + 細亮線，一眼認出自己
+        if (this.state !== "ko") {
+          const ringPulse = 1 + Math.sin(this.animTime * 5) * 0.04;
           ctx.save();
+          ctx.translate(centerX, this.y);
+          ctx.scale(1, 0.3);
+          const discR = 31 * ringPulse;
+          const disc = ctx.createRadialGradient(0, 0, discR * 0.35, 0, 0, discR);
+          disc.addColorStop(0, "rgba(255, 255, 255, 0)");
+          disc.addColorStop(1, this.slotColor);
+          ctx.globalAlpha = 0.34;
+          ctx.fillStyle = disc;
+          ctx.beginPath(); ctx.arc(0, 0, discR, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 0.3;
           ctx.strokeStyle = this.slotColor;
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.ellipse(centerX, this.y, 28, 8, 0, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.lineWidth = 7;
+          ctx.beginPath(); ctx.arc(0, 0, discR, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath(); ctx.arc(0, 0, discR, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+
+        // 衝刺速度線
+        if (this.state === "dash") {
+          ctx.save();
+          ctx.lineCap = "round";
+          for (let i = 0; i < 4; i++) {
+            const ly = footY - 18 - i * 19;
+            const len = 34 + ((i * 37) % 3) * 12;
+            const startX = centerX - this.facing * (20 + i * 5);
+            const streak = ctx.createLinearGradient(startX, ly, startX - this.facing * len, ly);
+            streak.addColorStop(0, "rgba(255, 255, 255, 0.75)");
+            streak.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.strokeStyle = streak;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(startX, ly); ctx.lineTo(startX - this.facing * len, ly); ctx.stroke();
+          }
           ctx.restore();
         }
 
@@ -3078,35 +3650,54 @@
         this.charDef.drawLocalModel(ctx, this, anim);
         ctx.restore();
 
-        // 多人亂鬥或連線模式時，頭頂顯示 P1~P4 標籤與迷你血條
+// 頭頂名牌 (席位色膠囊) 與圓角迷你血條
         if (showHeadTag && this.state !== "ko") {
-          const tagY = footY - this.height - 20;
-          const barW = 52;
+          const tagY = footY - this.height - 22;
+          const barW = 56;
           const hpRatio = Math.max(0, Math.min(1, this.hp / this.maxHp));
           ctx.save();
-          ctx.font = "bold 11px Microsoft JhengHei, sans-serif";
+          ctx.font = "bold 11px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
           const shortTag = this.customNickname ? `${this.id}P ${this.customNickname}` : (this.isCOM ? `${this.id}P COM` : `${this.id}P`);
-          ctx.strokeStyle = "#000";
-          ctx.lineWidth = 3;
-          ctx.strokeText(shortTag, centerX, tagY - 5);
-          ctx.fillStyle = this.slotColor;
-          ctx.fillText(shortTag, centerX, tagY - 5);
+          const pillW = Math.min(120, Math.max(34, ctx.measureText(shortTag).width + 14));
+          ctx.beginPath();
+          ctx.roundRect(centerX - pillW / 2, tagY - 19, pillW, 15, 7.5);
+          ctx.fillStyle = "rgba(14, 9, 22, 0.78)";
+          ctx.fill();
+          ctx.strokeStyle = this.slotColor;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(shortTag, centerX, tagY - 11, pillW - 8);
 
-          ctx.fillStyle = "rgba(0,0,0,0.75)";
-          ctx.fillRect(centerX - barW / 2, tagY, barW, 5);
-          ctx.fillStyle = hpRatio > 0.3 ? "#2dc653" : "#ff4d6d";
-          ctx.fillRect(centerX - barW / 2, tagY, barW * hpRatio, 5);
-          ctx.strokeStyle = "#fff";
+          ctx.beginPath();
+          ctx.roundRect(centerX - barW / 2, tagY, barW, 6, 3);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
+          ctx.fill();
+          if (hpRatio > 0) {
+            const hpGrad = ctx.createLinearGradient(0, tagY, 0, tagY + 6);
+            if (hpRatio > 0.3) { hpGrad.addColorStop(0, "#7dffa0"); hpGrad.addColorStop(1, "#1fa64a"); }
+            else { hpGrad.addColorStop(0, "#ff9aa8"); hpGrad.addColorStop(1, "#e0254a"); }
+            ctx.fillStyle = hpGrad;
+            ctx.beginPath();
+            ctx.roundRect(centerX - barW / 2, tagY, Math.max(4, barW * hpRatio), 6, 3);
+            ctx.fill();
+          }
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
           ctx.lineWidth = 1;
-          ctx.strokeRect(centerX - barW / 2, tagY, barW, 5);
+          ctx.beginPath();
+          ctx.roundRect(centerX - barW / 2, tagY, barW, 6, 3);
+          ctx.stroke();
           ctx.restore();
         }
 
         if (this.dashCooldownTimer > 0) {
           const ratio = 1 - this.dashCooldownTimer / CONFIG.dashCooldown;
-          ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(this.x, this.y + 10, this.width, 4);
-          ctx.fillStyle = "#4cc9f0"; ctx.fillRect(this.x, this.y + 10, this.width * ratio, 4);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+          ctx.beginPath(); ctx.roundRect(this.x, this.y + 11, this.width, 4, 2); ctx.fill();
+          ctx.fillStyle = "#4cc9f0";
+          ctx.beginPath(); ctx.roundRect(this.x, this.y + 11, Math.max(3, this.width * ratio), 4, 2); ctx.fill();
         }
 
         if (showBoxes) {
@@ -3280,9 +3871,22 @@
         this.input = new InputManager();
         this.comAI = new COMController();
         this.comAIs = [null, new COMController(), new COMController(), new COMController(), new COMController()];
-        this.remoteInputs = [null, new RemoteInputController(), new RemoteInputController(), new RemoteInputController(), new RemoteInputController()];
 
-        this.isMobile = detectMobileDevice();
+        this.isMobile = IS_TOUCH_DEVICE;
+        this.wzPage = "mode";
+        this.modeFocus = 0;
+        this.stepAccumulator = 0;
+        this.frameTimeEma = FIXED_STEP;
+        this.frameSampleCount = 0;
+        this.maxRenderScale = 2;
+        this.rttMs = 0;
+        this._pingTimer = 0;
+        this._predHist = [];
+        this._predDir = null;
+        this._facingHoldUntil = 0;
+        this._reconnectAttempt = 0;
+        this._reconnectTimer = null;
+        this._disconnectedAt = 0;
         this.scene = "select";
         this.playMode = "com"; // "com" | "pvp" | "online"
         this.isComMode = true;
@@ -3349,27 +3953,27 @@
         this.netSyncTimer = 0;
         this.publicRooms = [];
 
-        this.selectOverlay = document.getElementById("selectOverlay");
+this.selectOverlay = document.getElementById("selectOverlay");
+        this.pageEls = Array.from(this.selectOverlay.querySelectorAll(".wz-page"));
+        this.modeCardEls = Array.from(this.selectOverlay.querySelectorAll(".mode-card"));
+        this.wzBackEl = document.getElementById("wzBack");
+        this.wzStepEl = document.getElementById("wzStep");
+        this.wzTitleEl = document.getElementById("wzTitle");
+        this.wzDotEls = Array.from(document.querySelectorAll("#wzDots i"));
         this.rosterGrid = document.getElementById("rosterGrid");
+        this.btnCharNext = document.getElementById("btnCharNext");
         this.mapOptions = document.getElementById("mapOptions");
-        this.p1StatusEl = document.getElementById("p1SelectStatus");
-        this.p2StatusEl = document.getElementById("p2SelectStatus");
-        this.btnModePvp = document.getElementById("btnModePvp");
-        this.btnModeCom = document.getElementById("btnModeCom");
-        this.btnModeOnline = document.getElementById("btnModeOnline");
-        this.modeSwitchGroup = document.getElementById("modeSwitchGroup");
-        this.brawlCountGroup = document.getElementById("brawlCountGroup");
         this.diffSwitchGroup = document.getElementById("diffSwitchGroup");
-        this.onlineLobbyPanel = document.getElementById("onlineLobbyPanel");
-        this.onlineLobbyBrowser = document.getElementById("onlineLobbyBrowser");
-        this.onlineRoomInside = document.getElementById("onlineRoomInside");
         this.wsStatusBadge = document.getElementById("wsStatusBadge");
         this.wsUrlInput = document.getElementById("wsUrlInput");
         this.onlineNicknameInput = document.getElementById("onlineNicknameInput");
         this.onlineRoomIdInput = document.getElementById("onlineRoomIdInput");
         this.onlineRoomList = document.getElementById("onlineRoomList");
-        this.roomSlotsBar = document.getElementById("roomSlotsBar");
-        this.activeRoomTitle = document.getElementById("activeRoomTitle");
+        this.roomSlotsEl = document.getElementById("roomSlots");
+        this.roomCodeLabel = document.getElementById("roomCodeLabel");
+        this.roomCodeText = document.getElementById("roomCodeText");
+        this.btnCopyRoom = document.getElementById("btnCopyRoom");
+        this.roomHintEl = document.getElementById("roomHint");
         this.selectGuideText = document.getElementById("selectGuideText");
         this.btnStartMatch = document.getElementById("btnStartMatch");
         this.vBtnUlt = document.getElementById("vBtnUlt");
@@ -3397,7 +4001,7 @@
             this.wsUrlInput.placeholder = "請輸入 Render 後端 wss:// 網址";
             if (this.wsStatusBadge) {
               this.wsStatusBadge.className = "ws-status-badge disconnected";
-              this.wsStatusBadge.textContent = "⚙️ 請設定後端網址";
+              this.wsStatusBadge.textContent = "⚙️ 請設定伺服器網址";
             }
           } else if (window.location && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
             const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
@@ -3410,7 +4014,11 @@
         this.setupUIEvents();
         this.buildSelectUI();
         this.buildMapUI();
-        this.setComMode(true);
+        this.setPlayMode("com");
+        this.showPage("mode");
+        this.applyRenderScale();
+        window.addEventListener("resize", () => this.applyRenderScale());
+        window.addEventListener("orientationchange", () => setTimeout(() => this.applyRenderScale(), 250));
 
         // 若有明確目標伺服器或非 Vercel 環境，自動背景連線
         if (this.wsUrlInput && this.wsUrlInput.value.trim()) {
@@ -3458,95 +4066,126 @@
         this.shakeIntensity = 15;
         SFX.play("ult");
         this.spawnHitSparks(fighter.x + fighter.width / 2, fighter.getDrawTopY() + 36, true);
-        if (this.playMode === "online" && this.onlineIsHost) {
-          this.sendWs({
-            type: "game_event",
-            event: {
-              kind: "ult",
-              slot: fighter.id,
-              fighterName: fighter.name,
-              ultTitle: fighter.charDef.ultTitle || "超必殺奧義",
-              photo: fighter.charDef.photo,
-              faceCrop: fighter.charDef.faceCrop,
-              color: fighter.color
-            }
-          });
-        }
       }
 
       // =======================================================================
       // 🌐 WebSocket 連線對戰房與即時房間列表管理
       // =======================================================================
+setWsBadge(kind, text) {
+        if (!this.wsStatusBadge) return;
+        this.wsStatusBadge.className = `ws-status-badge ${kind}`.trim();
+        this.wsStatusBadge.textContent = text;
+      }
+
+      // 重連用的身分 token (每個分頁一組)：斷線後伺服器憑它把原本的席位還給你
+      getSessionToken() {
+        if (this._sessionToken) return this._sessionToken;
+        let token = "";
+        try { token = sessionStorage.getItem("tunshi_session_token") || ""; } catch (_) { }
+        if (token.length < 16) {
+          const bytes = new Uint8Array(16);
+          if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+          else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+          token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+          try { sessionStorage.setItem("tunshi_session_token", token); } catch (_) { }
+        }
+        this._sessionToken = token;
+        return token;
+      }
+
       connectWebSocket() {
-        let rawUrl = (this.wsUrlInput && this.wsUrlInput.value.trim()) ? this.wsUrlInput.value.trim() : "";
+        const rawUrl = (this.wsUrlInput && this.wsUrlInput.value.trim()) ? this.wsUrlInput.value.trim() : "";
         if (!rawUrl) {
-          if (this.wsStatusBadge) {
-            this.wsStatusBadge.className = "ws-status-badge disconnected";
-            this.wsStatusBadge.textContent = "🔴 請輸入伺服器網址";
-          }
+          this.setWsBadge("disconnected", "🔴 請設定伺服器網址");
           return;
         }
 
-        // 智慧正規化網址 (自動將 https:// 轉換為 wss://，http:// 轉換為 ws://)
+        // 自動將 https:// 轉換為 wss://，http:// 轉換為 ws://
         let url = rawUrl;
-        if (url.startsWith("http://")) {
-          url = "ws://" + url.slice(7);
-        } else if (url.startsWith("https://")) {
-          url = "wss://" + url.slice(8);
-        } else if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
-          url = "wss://" + url;
-        }
+        if (url.startsWith("http://")) url = "ws://" + url.slice(7);
+        else if (url.startsWith("https://")) url = "wss://" + url.slice(8);
+        else if (!url.startsWith("ws://") && !url.startsWith("wss://")) url = "wss://" + url;
         url = url.replace(/\/+$/, "");
-
-        if (this.wsUrlInput) {
-          this.wsUrlInput.value = url;
-        }
+        if (this.wsUrlInput) this.wsUrlInput.value = url;
 
         if (typeof WebSocket === "undefined") return;
+        if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
         try {
           if (this.ws) {
-            try { this.ws.close(); } catch (_) { }
+            const old = this.ws;
+            this.ws = null;
+            try { old.close(); } catch (_) { }
           }
-          if (this.wsStatusBadge) {
-            this.wsStatusBadge.className = "ws-status-badge";
-            this.wsStatusBadge.textContent = "⏳ 連線中...";
-          }
+          this.wsConnected = false;
+          this.setWsBadge("", this._reconnectAttempt >= 2 ? "⏳ 伺服器喚醒中…" : "⏳ 連線中…");
           const ws = new WebSocket(url);
           this.ws = ws;
 
           ws.onopen = () => {
             if (this.ws !== ws) return;
             this.wsConnected = true;
-            try {
-              localStorage.setItem("tunshi_tiandi_ws_url", url);
-            } catch (_) { }
-            if (this.wsStatusBadge) {
-              this.wsStatusBadge.className = "ws-status-badge connected";
-              this.wsStatusBadge.textContent = "🟢 已連線大廳";
-            }
+            this._reconnectAttempt = 0;
+            this._disconnectedAt = 0;
+            try { localStorage.setItem("tunshi_tiandi_ws_url", url); } catch (_) { }
+            this.setWsBadge("connected", "🟢 已連線");
+            this.sendWs({ type: "hello", token: this.getSessionToken() });
             this.sendWs({ type: "get_rooms" });
+            if (this.wzPage === "lobby") this.renderPublicRoomList();
           };
 
           ws.onmessage = (ev) => {
             if (this.ws !== ws) return;
             try {
-              const msg = JSON.parse(ev.data);
-              this.handleWsMessage(msg);
-            } catch (_) { }
+              this.handleWsMessage(JSON.parse(ev.data));
+            } catch (err) {
+              console.error("WS message error:", err);
+            }
           };
 
           const onDisconnect = () => {
             if (this.ws !== ws) return;
+            this.ws = null;
             this.wsConnected = false;
-            if (this.wsStatusBadge) {
-              this.wsStatusBadge.className = "ws-status-badge disconnected";
-              this.wsStatusBadge.textContent = "🔴 未連線 (請執行 node server.js)";
+            if (!this._disconnectedAt) this._disconnectedAt = performance.now();
+            if (this.playMode === "online") {
+              this.setWsBadge("disconnected", "🟡 重新連線中…");
+              this.scheduleReconnect();
+            } else {
+              this.setWsBadge("disconnected", "🔴 尚未連線");
             }
+            if (this.wzPage === "lobby") this.renderPublicRoomList();
           };
-
           ws.onclose = onDisconnect;
           ws.onerror = onDisconnect;
-        } catch (_) { }
+        } catch (_) {
+          this.setWsBadge("disconnected", "🔴 伺服器網址無效");
+        }
+      }
+
+      // 斷線後自動重連 (0.6s → 1.2s → 2.4s … 最長 8s)。伺服器會保留席位約 20 秒。
+      scheduleReconnect() {
+        if (this._reconnectTimer || this.playMode !== "online") return;
+        if (this.onlineRoom && this._disconnectedAt && performance.now() - this._disconnectedAt > 22000) {
+          this.dropOnlineRoom("連線中斷超過 20 秒，已離開房間。重新連上後可以再加入。");
+        }
+        this._reconnectAttempt++;
+        const delay = Math.min(8000, 600 * Math.pow(2, this._reconnectAttempt - 1));
+        if (this._reconnectAttempt >= 3) this.setWsBadge("disconnected", "🟡 伺服器喚醒中，請稍候…");
+        this._reconnectTimer = setTimeout(() => {
+          this._reconnectTimer = null;
+          if (this.playMode === "online" && !this.wsConnected) this.connectWebSocket();
+        }, delay);
+      }
+
+      dropOnlineRoom(message) {
+        this.onlineRoom = null;
+        this.onlineIsHost = false;
+        if (this.scene === "fight" && this.playMode === "online") {
+          this.scene = "select";
+          this.selectOverlay.classList.remove("hidden");
+        }
+        if (this.playMode === "online" && this.scene === "select") this.showPage("lobby");
+        if (message) this.setGuide(message, true);
       }
 
       sendWs(payload) {
@@ -3564,14 +4203,28 @@
           case "welcome":
           case "room_list": {
             this.publicRooms = Array.isArray(msg.rooms) ? msg.rooms : [];
-            this.renderPublicRoomList();
+            if (this.wzPage === "lobby") this.renderPublicRoomList();
+            break;
+          }
+
+          case "hello_ack": {
+            // 伺服器沒有保留到我們的席位 (斷線太久或伺服器重啟)
+            if (!msg.resumed && this.onlineRoom) {
+              this.dropOnlineRoom("原本的房間已經不在了，請重新建立或加入。");
+            }
+            break;
+          }
+
+          case "pong": {
+            const sample = performance.now() - (Number(msg.t) || 0);
+            if (sample >= 0 && sample < 5000) {
+              this.rttMs = this.rttMs ? this.rttMs * 0.7 + sample * 0.3 : sample;
+            }
             break;
           }
 
           case "room_error": {
-            if (this.selectGuideText) {
-              this.selectGuideText.textContent = `⚠️ ${msg.message}`;
-            }
+            this.setGuide(`⚠️ ${msg.message}`, true);
             break;
           }
 
@@ -3582,20 +4235,31 @@
             if (Number.isInteger(this.onlineRoom.mapIndex) && MAP_TEMPLATES[this.onlineRoom.mapIndex]) {
               this.mapIndex = this.onlineRoom.mapIndex;
               this.currentMap = MAP_TEMPLATES[this.mapIndex];
-              if (this.mapChipEls) {
-                this.mapChipEls.forEach((c, i) => c.classList.toggle("active", i === this.mapIndex));
+            }
+            const mine = this.onlineRoom.players.find((p) => p.slot === this.onlineMySlot);
+            if (mine && Number.isInteger(mine.charIndex) && this.scene === "select") this.p1Index = mine.charIndex;
+            if (this.scene === "select") {
+              // 重新整理 / 重連後伺服器把席位還給我們：即使目前不在連線模式也要回到房間頁
+              if (this.playMode !== "online") {
+                this.setPlayMode("online");
+                this.showPage("room");
+              } else if (this.wzPage === "lobby" || this.wzPage === "mode") {
+                this.showPage("room");
+              } else {
+                this.updateSelectUI();
               }
             }
-            this.renderInsideRoomUI();
-            this.updateSelectUI();
             break;
           }
 
           case "left_room": {
             this.onlineRoom = null;
             this.onlineIsHost = false;
-            this.renderInsideRoomUI();
-            this.updateSelectUI();
+            if (this.scene === "fight" && this.playMode === "online") {
+              this.scene = "select";
+              this.selectOverlay.classList.remove("hidden");
+            }
+            if (this.playMode === "online") this.showPage("lobby");
             break;
           }
 
@@ -3613,8 +4277,7 @@
             this.onlineIsHost = !!msg.isHost;
             this.scene = "select";
             this.selectOverlay.classList.remove("hidden");
-            this.renderInsideRoomUI();
-            this.updateSelectUI();
+            this.showPage("room");
             break;
           }
 
@@ -3623,10 +4286,10 @@
             const f = this.allFighters[leaverSlot - 1];
             if (f && this.activeFighters.includes(f)) {
               f.isCOM = true;
-              f.isRemote = false;
               f.comDiffLabel = "普通";
               f.customNickname = `${msg.leaverName || leaverSlot + "P"}(COM接手)`;
-              f.setCharacter(f.charDef);
+              const prefix = `${f.id}P ${f.customNickname}`;
+              f.name = `${prefix} (${f.charDef.name})`;
             }
             if (msg.newHostSlot === this.onlineMySlot) {
               this.onlineIsHost = true;
@@ -3634,22 +4297,15 @@
             break;
           }
 
-          case "remote_player_input": {
-            if (this.onlineIsHost && msg.slot >= 1 && msg.slot <= 4) {
-              this.remoteInputs[msg.slot].applyNetworkPacket(msg.held, msg.pressed);
-            }
-            break;
-          }
-
           case "game_state": {
-            if (this.playMode === "online" && msg.state) {
+            if (this.playMode === "online" && this.scene === "fight" && msg.state) {
               this.applyOnlineState(msg.state);
             }
             break;
           }
 
           case "game_event": {
-            if (this.playMode === "online" && msg.event) {
+            if (this.playMode === "online" && this.scene === "fight" && msg.event) {
               this.applyOnlineEvent(msg.event);
             }
             break;
@@ -3657,238 +4313,449 @@
         }
       }
 
-      renderPublicRoomList() {
-        if (!this.onlineRoomList) return;
-        this.onlineRoomList.innerHTML = "";
-        if (!this.publicRooms || this.publicRooms.length === 0) {
-          this.onlineRoomList.innerHTML = `<span style="color:#9a8cb0;">目前尚無公開房間，請在上方輸入房號 ID 開啟第一個對戰房！</span>`;
-          return;
-        }
+      // =======================================================================
+      // 開戰前流程：1 模式 → 2 角色 → 3 房間 (手機一頁只做一件事)
+      // =======================================================================
+      setGuide(text, warn = false) {
+        if (!this.selectGuideText) return;
+        this.selectGuideText.textContent = text || "";
+        this.selectGuideText.classList.toggle("warn", !!warn);
+      }
 
-        for (const r of this.publicRooms) {
-          const chip = document.createElement("div");
-          chip.className = "room-item-chip";
-          const mapName = MAP_TEMPLATES[r.mapIndex]?.name || "洛陽城門";
-          const statusBadge = r.status === "waiting"
-            ? `<span style="color:#80ed99; font-weight:800;">🟢 等待中 (${r.playerCount}/${r.maxPlayers}人)</span>`
-            : `<span style="color:#ff758f; font-weight:800;">⚔️ 激戰中 (${r.playerCount}/${r.maxPlayers}人)</span>`;
-          chip.innerHTML = `
-            <span style="color:#ffd166; font-weight:900;">【房號: ${r.roomId}】</span>
-            <span style="color:#e2daec;">房主: ${r.hostName}</span>
-            <span style="color:#b8acc7;">🏯 ${mapName}</span>
-            ${statusBadge}
-            <button type="button" class="online-btn primary" style="padding:2px 7px;">加入</button>
-          `;
-          chip.addEventListener("click", () => {
-            if (!this.wsConnected) {
-              this.connectWebSocket();
-              return;
-            }
-            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
-            this.sendWs({
-              type: "join_room",
-              roomId: r.roomId,
-              name,
-              charIndex: this.p1Index
-            });
-          });
-          this.onlineRoomList.appendChild(chip);
+      showPage(page) {
+        this.wzPage = page;
+        const online = this.playMode === "online";
+        this.pageEls.forEach((el) => el.classList.toggle("active", el.dataset.page === page));
+        const step = page === "mode" ? 1 : (page === "char" ? 2 : 3);
+        this.wzStepEl.textContent = `${step} / 3`;
+        this.wzDotEls.forEach((dot, i) => dot.classList.toggle("on", i < step));
+        const titles = {
+          mode: "選擇遊戲模式",
+          char: "選擇你的角色",
+          lobby: "連線大廳",
+          room: online ? "對戰房間" : (this.playMode === "pvp" ? "雙人同機" : "單機挑戰")
+        };
+        this.wzTitleEl.textContent = titles[page] || "";
+        this.wzBackEl.classList.toggle("invisible", page === "mode");
+        this.wzBackEl.textContent = (page === "room" && online) ? "‹ 離開房間" : "‹ 返回";
+        this.wsStatusBadge.hidden = !(online && (page === "lobby" || page === "room"));
+
+        if (page === "mode") {
+          this.setGuide("先選一種玩法，下一步再挑角色。");
+          if (!IS_TOUCH_DEVICE) {
+            const cards = this.modeCardEls.filter((c) => c.offsetParent !== null);
+            const comIdx = cards.findIndex((c) => c.dataset.mode === "com");
+            if (!this._modeFocusInit && comIdx >= 0) { this.modeFocus = comIdx; this._modeFocusInit = true; }
+            this.modeCardEls.forEach((c) => c.classList.remove("focus"));
+            if (cards[this.modeFocus]) cards[this.modeFocus].classList.add("focus");
+          }
+        } else if (page === "char") {
+          this.setGuide(online && this.onlineRoom ? "點卡片換角色，選好按「確定」回房間。" : "點卡片看招式，選好按「下一步」。");
+          this.updateSelectUI();
+        } else if (page === "lobby") {
+          if (!this.wsConnected) this.connectWebSocket();
+          const hasServerUrl = !!(this.wsUrlInput && this.wsUrlInput.value.trim());
+          if (hasServerUrl) {
+            this.setGuide("建立新房間，或點右邊的公開房間直接加入。");
+          } else {
+            const settings = this.selectOverlay.querySelector(".server-settings");
+            if (settings) settings.open = true;
+            this.setGuide("尚未設定連線伺服器：請在左下「伺服器設定」貼上網址後按「重新連線」。", true);
+          }
+          this.renderPublicRoomList();
+        } else {
+          this.setGuide("");
+          this.renderRoomPage();
         }
       }
 
-      renderInsideRoomUI() {
-        if (!this.onlineLobbyBrowser || !this.onlineRoomInside) return;
-        if (!this.onlineRoom) {
-          this.onlineLobbyBrowser.style.display = "block";
-          this.onlineRoomInside.style.display = "none";
-          return;
-        }
-
-        this.onlineLobbyBrowser.style.display = "none";
-        this.onlineRoomInside.style.display = "flex";
-        if (this.activeRoomTitle) {
-          this.activeRoomTitle.textContent = `🏠 對戰房 ID：【${this.onlineRoom.roomId}】 (${this.onlineRoom.playerCount}/4 人) — 你是 ${this.onlineMySlot}P${this.onlineIsHost ? " (房主)" : ""}`;
-        }
-
-        const btnAddCom = document.getElementById("btnAddRoomCom");
-        const btnRemCom = document.getElementById("btnRemoveRoomCom");
-        if (btnAddCom) btnAddCom.style.display = this.onlineIsHost ? "inline-block" : "none";
-        if (btnRemCom) btnRemCom.style.display = this.onlineIsHost ? "inline-block" : "none";
-
-        if (this.roomSlotsBar) {
-          this.roomSlotsBar.innerHTML = "";
-          for (let s = 1; s <= 4; s++) {
-            const p = this.onlineRoom.players.find((pl) => pl.slot === s);
-            const slotEl = document.createElement("div");
-            if (p) {
-              const charDef = CHARACTER_ROSTER[p.charIndex] || CHARACTER_ROSTER[0];
-              slotEl.className = `room-slot-card filled slot-${s}`;
-              slotEl.innerHTML = `
-                <div style="display:flex; align-items:center; gap:5px; min-width:0;">
-                  <span class="badge p${s}">${s}P${p.isHost ? "房主" : ""}</span>
-                  <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</span>
-                </div>
-                <span style="color:#ffd166; font-weight:700; white-space:nowrap;">【${charDef.name}】</span>
-              `;
-            } else {
-              slotEl.className = `room-slot-card slot-${s}`;
-              slotEl.innerHTML = `
-                <span style="color:#7c6f94;">${s}P 空位 (等待玩家加入或房主+COM)</span>
-              `;
-            }
-            this.roomSlotsBar.appendChild(slotEl);
+      goBack() {
+        if (this.scene !== "select") return;
+        const page = this.wzPage;
+        if (page === "char") {
+          this.showPage(this.playMode === "online" && this.onlineRoom ? "room" : "mode");
+        } else if (page === "lobby") {
+          this.showPage("char");
+        } else if (page === "room") {
+          if (this.playMode !== "online") {
+            this.showPage("char");
+          } else if (this.wsConnected && this.onlineRoom) {
+            this.sendWs({ type: "leave_room" });
+          } else {
+            this.onlineRoom = null;
+            this.onlineIsHost = false;
+            this.showPage("lobby");
           }
         }
       }
 
+      goNextFromChar() {
+        if (this.playMode === "online") this.showPage(this.onlineRoom ? "room" : "lobby");
+        else this.showPage("room");
+      }
+
+      setPlayMode(mode) {
+        if (IS_TOUCH_DEVICE && mode === "pvp") mode = "com";
+        this.playMode = mode;
+        this.isComMode = (mode === "com");
+        if (mode === "pvp") this.brawlCount = 2;
+        const p2KeyBox = document.getElementById("p2KeyBox");
+        if (p2KeyBox) p2KeyBox.style.display = mode === "pvp" ? "block" : "none";
+        if (mode === "online" && !this.wsConnected) this.connectWebSocket();
+      }
+
+      getNickname() {
+        const raw = (this.onlineNicknameInput && this.onlineNicknameInput.value || "").trim();
+        return raw || "猛將";
+      }
+
+      createRoom() {
+        if (!this.wsConnected) {
+          this.connectWebSocket();
+          this.setGuide("正在連線伺服器，連上後請再按一次。", true);
+          return;
+        }
+        const roomId = (this.onlineRoomIdInput?.value || "").trim() || String(Math.floor(1000 + Math.random() * 9000));
+        this.sendWs({ type: "create_room", roomId, name: this.getNickname(), charIndex: this.p1Index, mapIndex: this.mapIndex });
+      }
+
+      joinRoom(roomId) {
+        if (!this.wsConnected) {
+          this.connectWebSocket();
+          this.setGuide("正在連線伺服器，連上後請再按一次。", true);
+          return;
+        }
+        if (!roomId) {
+          this.setGuide("請先輸入房號，或直接點右邊的公開房間。", true);
+          return;
+        }
+        this.sendWs({ type: "join_room", roomId, name: this.getNickname(), charIndex: this.p1Index });
+      }
+
+      renderPublicRoomList() {
+        const list = this.onlineRoomList;
+        if (!list) return;
+        list.textContent = "";
+        const rooms = this.publicRooms || [];
+        if (!this.wsConnected || rooms.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "room-empty";
+          empty.textContent = !this.wsConnected
+            ? ((this.wsUrlInput && this.wsUrlInput.value.trim()) ? "正在連線伺服器…" : "尚未設定連線伺服器")
+            : "目前沒有公開房間，按「建立房間」開第一間！";
+          list.appendChild(empty);
+          return;
+        }
+        for (const r of rooms) {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "room-item";
+          const rid = document.createElement("span");
+          rid.className = "rid";
+          rid.textContent = `#${r.roomId}`;
+          const meta = document.createElement("span");
+          meta.className = "rmeta";
+          meta.textContent = `${r.hostName} 的房間 · ${MAP_TEMPLATES[r.mapIndex]?.name || MAP_TEMPLATES[0].name}`;
+          const stat = document.createElement("span");
+          const waiting = r.status === "waiting";
+          stat.className = `rstat ${waiting ? "waiting" : "fighting"}`;
+          stat.textContent = waiting ? `${r.playerCount}/${r.maxPlayers} 等待中` : "對戰中";
+          item.append(rid, meta, stat);
+          item.addEventListener("click", () => this.joinRoom(r.roomId));
+          list.appendChild(item);
+        }
+      }
+
+      // 房間 4 個席位的資料 (連線房來自伺服器，單機房來自本機設定)
+      getRoomSeats() {
+        const seats = [null, null, null, null];
+        if (this.playMode === "online") {
+          if (!this.onlineRoom) return seats;
+          for (const p of this.onlineRoom.players) {
+            if (p.slot < 1 || p.slot > 4) continue;
+            seats[p.slot - 1] = {
+              slot: p.slot, name: p.name, charIndex: p.charIndex,
+              isHost: !!p.isHost, isCOM: !!p.isCOM, offline: !!p.offline,
+              isMe: p.slot === this.onlineMySlot
+            };
+          }
+          return seats;
+        }
+        const diffLabel = COM_DIFFICULTIES[this.comDifficulty].label;
+        const oppChars = [this.p2Index, this.p3Index, this.p4Index];
+        seats[0] = { slot: 1, name: this.playMode === "pvp" ? "1P 玩家" : "你", charIndex: this.p1Index, isMe: true };
+        for (let i = 0; i < this.brawlCount - 1; i++) {
+          seats[i + 1] = this.playMode === "pvp"
+            ? { slot: 2, name: "2P 玩家", charIndex: oppChars[i], isLocalP2: true }
+            : { slot: i + 2, name: `電腦 (${diffLabel})`, charIndex: oppChars[i], isCOM: true };
+        }
+        return seats;
+      }
+
+      setSeatChar(slot, charIndex) {
+        if (slot === 2) this.p2Index = charIndex;
+        else if (slot === 3) this.p3Index = charIndex;
+        else if (slot === 4) this.p4Index = charIndex;
+      }
+
+      addCom() {
+        if (this.playMode === "online") {
+          this.sendWs({ type: "add_room_com", comDiff: this.comDifficulty });
+          return;
+        }
+        if (this.playMode !== "com" || this.brawlCount >= 4) return;
+        const used = new Set([this.p1Index, this.p2Index, this.p3Index, this.p4Index].slice(0, this.brawlCount));
+        let pick = 0;
+        while (used.has(pick) && pick < CHARACTER_ROSTER.length - 1) pick++;
+        this.brawlCount++;
+        this.setSeatChar(this.brawlCount, pick);
+        this.renderRoomPage();
+      }
+
+      removeCom(slot) {
+        if (this.playMode === "online") {
+          this.sendWs({ type: "remove_room_com", slot });
+          return;
+        }
+        if (this.brawlCount <= 2) return;
+        const chars = [this.p2Index, this.p3Index, this.p4Index];
+        const removed = chars.splice(slot - 2, 1)[0];
+        chars.push(removed);
+        [this.p2Index, this.p3Index, this.p4Index] = chars;
+        this.brawlCount--;
+        this.renderRoomPage();
+      }
+
+      cycleSeatChar(seat) {
+        const next = ((seat.charIndex || 0) + 1) % CHARACTER_ROSTER.length;
+        if (this.playMode === "online") {
+          this.sendWs({ type: "update_room_com", slot: seat.slot, charIndex: next });
+          return;
+        }
+        this.setSeatChar(seat.slot, next);
+        this.renderRoomPage();
+      }
+
+      renderRoomPage() {
+        if (this.wzPage !== "room") return;
+        const online = this.playMode === "online";
+        const pvp = this.playMode === "pvp";
+        const canEdit = online ? this.onlineIsHost : true;
+        const seats = this.getRoomSeats();
+        const count = seats.filter(Boolean).length;
+
+        this.roomCodeLabel.textContent = online ? "房號" : "模式";
+        this.roomCodeText.textContent = online ? (this.onlineRoom ? this.onlineRoom.roomId : "—") : (pvp ? "雙人同機" : "單機挑戰");
+        this.btnCopyRoom.style.display = online ? "" : "none";
+        this.diffSwitchGroup.style.display = (canEdit && !pvp) ? "" : "none";
+        this.mapOptions.classList.toggle("locked", !canEdit);
+        if (this.mapChipEls) this.mapChipEls.forEach((c, i) => c.classList.toggle("active", i === this.mapIndex));
+
+        this.roomSlotsEl.textContent = "";
+        let addShown = false;
+        for (let i = 0; i < 4; i++) {
+          const slot = i + 1;
+          const seat = seats[i];
+          if (!seat) {
+            const canAdd = canEdit && !pvp && !addShown;
+            const el = document.createElement(canAdd ? "button" : "div");
+            el.className = `slot-card empty s${slot}`;
+            if (canAdd) {
+              addShown = true;
+              el.type = "button";
+              const plus = document.createElement("span");
+              plus.className = "plus";
+              plus.textContent = "+";
+              const label = document.createElement("span");
+              label.textContent = "加入電腦";
+              el.append(plus, label);
+              el.addEventListener("click", () => this.addCom());
+            } else {
+              el.textContent = online ? "等待玩家加入…" : "空位";
+            }
+            this.roomSlotsEl.appendChild(el);
+            continue;
+          }
+
+          const charDef = CHARACTER_ROSTER[seat.charIndex] || CHARACTER_ROSTER[0];
+          const card = document.createElement("div");
+          card.className = `slot-card s${slot}${seat.isMe ? " me" : ""}${seat.offline ? " offline" : ""}`;
+          const photo = document.createElement("div");
+          photo.className = "slot-photo";
+          photo.style.backgroundImage = `url("${encodeURI(charDef.photo)}")`;
+          photo.style.backgroundPosition = this.photoFocus(charDef);
+          const tag = document.createElement("span");
+          tag.className = "slot-tag";
+          tag.textContent = `${slot}P`;
+          const flags = document.createElement("div");
+          flags.className = "slot-flags";
+          const addFlag = (text) => {
+            const flag = document.createElement("span");
+            flag.className = "slot-flag";
+            flag.textContent = text;
+            flags.appendChild(flag);
+          };
+          if (seat.isHost) addFlag("👑 房主");
+          if (seat.isMe && online) addFlag("你");
+          if (seat.isCOM) addFlag("電腦");
+          if (seat.offline) addFlag("重連中…");
+
+          const info = document.createElement("div");
+          info.className = "slot-info";
+          const name = document.createElement("div");
+          name.className = "slot-name";
+          name.textContent = seat.name;
+          const charName = document.createElement("div");
+          charName.className = "slot-char";
+          charName.textContent = charDef.name;
+          info.append(name, charName);
+
+          const canCycle = (seat.isCOM && canEdit) || seat.isLocalP2;
+          const canRemove = seat.isCOM && canEdit && (online || this.brawlCount > 2);
+          if (canCycle || canRemove) {
+            const actions = document.createElement("div");
+            actions.className = "slot-actions";
+            if (canCycle) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.textContent = "換角";
+              btn.addEventListener("click", () => this.cycleSeatChar(seat));
+              actions.appendChild(btn);
+            }
+            if (canRemove) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.textContent = "移除";
+              btn.addEventListener("click", () => this.removeCom(seat.slot));
+              actions.appendChild(btn);
+            }
+            info.appendChild(actions);
+          }
+          card.append(photo, tag, flags, info);
+          this.roomSlotsEl.appendChild(card);
+        }
+
+        if (online) {
+          if (this.onlineIsHost) {
+            this.btnStartMatch.disabled = count < 2;
+            this.btnStartMatch.textContent = count < 2 ? "至少要 2 人" : `開戰！（${count} 人）`;
+            this.roomHintEl.textContent = count < 2 ? "把房號告訴朋友，或按＋加入電腦湊人數" : "人到齊就可以開戰";
+          } else {
+            this.btnStartMatch.disabled = true;
+            this.btnStartMatch.textContent = "等待房主開戰…";
+            this.roomHintEl.textContent = `你是 ${this.onlineMySlot}P，可以先換角色`;
+          }
+        } else {
+          this.btnStartMatch.disabled = false;
+          this.btnStartMatch.textContent = count > 2 ? `開戰！（${count} 人）` : "開戰！";
+          this.roomHintEl.textContent = pvp
+            ? "1P：WASD 移動、F 輕 G 重 H 衝 Y 跳 T 必殺 ｜ 2P：方向鍵、, 輕 . 重 / 衝 Enter 跳 ; 必殺"
+            : (count < 4 ? "按＋可以再加電腦，最多 4 人亂鬥" : "4 人滿員亂鬥！");
+        }
+      }
+
+      startFromRoom() {
+        if (this.scene !== "select" || this.wzPage !== "room") return;
+        if (this.playMode === "online") {
+          if (this.onlineRoom && this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+        } else {
+          this.startMatch();
+        }
+      }
+
+      // 戰鬥中按「選單 / C」：單機回房間頁；連線房主帶全員回房間；非房主詢問後離開
+      requestReturnToSelect() {
+        if (this.scene !== "fight") return;
+        if (this.playMode === "online" && this.onlineRoom) {
+          if (this.onlineIsHost) {
+            this.sendWs({ type: "return_to_room" });
+          } else if (window.confirm("要離開這場對戰回到大廳嗎？（你的角色會由電腦接手）")) {
+            this.sendWs({ type: "leave_room" });
+          }
+        } else {
+          this.returnToSelect();
+        }
+      }
+
       setupUIEvents() {
-        if (this.isMobile && this.btnModePvp) {
-          this.btnModePvp.style.display = "none";
-        } else if (this.btnModePvp) {
-          this.btnModePvp.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("pvp"); });
-        }
-        if (this.btnModeCom) {
-          this.btnModeCom.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("com"); });
-        }
-        if (this.btnModeOnline) {
-          this.btnModeOnline.addEventListener("click", (e) => { e.currentTarget.blur(); this.setPlayMode("online"); });
-        }
+        // 點完按鈕就取消焦點，避免之後按空白鍵 / Enter 又觸發同一顆按鈕
+        this.selectOverlay.addEventListener("click", (e) => {
+          const btn = e.target.closest && e.target.closest("button");
+          if (btn) btn.blur();
+        });
 
-        // 單機大亂鬥人數切換 (2人 / 3人 / 4人)
-        if (this.brawlCountGroup) {
-          const countBtns = this.brawlCountGroup.querySelectorAll(".count-btn");
-          countBtns.forEach((btn) => {
-            btn.addEventListener("click", () => {
-              btn.blur();
-              countBtns.forEach((b) => b.classList.remove("active"));
-              btn.classList.add("active");
-              this.brawlCount = Number(btn.dataset.count) || 2;
-              this.updateSelectUI();
-            });
+        this.modeCardEls.forEach((card) => {
+          card.addEventListener("click", () => {
+            this.setPlayMode(card.dataset.mode);
+            this.showPage("char");
           });
-        }
+        });
+        this.wzBackEl.addEventListener("click", () => this.goBack());
+        this.btnCharNext.addEventListener("click", () => this.goNextFromChar());
+        document.getElementById("btnChangeChar").addEventListener("click", () => this.showPage("char"));
+        this.btnStartMatch.addEventListener("click", () => this.startFromRoom());
 
+        // COM 難度
         const diffBtns = this.diffSwitchGroup.querySelectorAll(".diff-btn");
         diffBtns.forEach((btn) => {
           btn.addEventListener("click", () => {
-            btn.blur();
             diffBtns.forEach((b) => b.classList.remove("active"));
             btn.classList.add("active");
             this.comDifficulty = btn.dataset.diff;
             this.comAI.setDifficulty(this.comDifficulty);
             for (let i = 1; i <= 4; i++) this.comAIs[i].setDifficulty(this.comDifficulty);
-            this.p2.comDiffLabel = COM_DIFFICULTIES[this.comDifficulty].label;
-            this.updateSelectUI();
+            if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
+              for (const p of this.onlineRoom.players) {
+                if (p.isCOM) this.sendWs({ type: "update_room_com", slot: p.slot, comDiff: this.comDifficulty });
+              }
+            }
+            this.renderRoomPage();
           });
         });
 
-        // 連線大廳按鈕事件
-        const btnConnectWs = document.getElementById("btnConnectWs");
-        if (btnConnectWs) {
-          btnConnectWs.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            this.connectWebSocket();
+        // 連線大廳
+        try {
+          const savedName = localStorage.getItem("tunshi_nickname");
+          if (savedName && this.onlineNicknameInput) this.onlineNicknameInput.value = savedName.slice(0, 10);
+        } catch (_) { }
+        if (this.onlineNicknameInput) {
+          this.onlineNicknameInput.addEventListener("change", () => {
+            try { localStorage.setItem("tunshi_nickname", this.getNickname()); } catch (_) { }
           });
         }
-
-        const btnCreateRoom = document.getElementById("btnCreateRoom");
-        if (btnCreateRoom) {
-          btnCreateRoom.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            if (!this.wsConnected) {
-              this.connectWebSocket();
-              this.selectGuideText.textContent = "⏳ 正在連線伺服器，請確認已執行 node server.js 後再點一次開啟對戰房！";
-              return;
-            }
-            const roomId = (this.onlineRoomIdInput?.value || "").trim() || String(Math.floor(1000 + Math.random() * 9000));
-            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
-            if (this.onlineRoomIdInput) this.onlineRoomIdInput.value = roomId;
-            this.sendWs({
-              type: "create_room",
-              roomId,
-              name,
-              charIndex: this.p1Index,
-              mapIndex: this.mapIndex
-            });
-          });
-        }
-
-        const btnJoinRoomById = document.getElementById("btnJoinRoomById");
-        if (btnJoinRoomById) {
-          btnJoinRoomById.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            if (!this.wsConnected) {
-              this.connectWebSocket();
-              return;
-            }
-            const roomId = (this.onlineRoomIdInput?.value || "").trim();
-            if (!roomId) {
-              this.selectGuideText.textContent = "⚠️ 請先輸入要加入的房號 ID，或直接點選下方公開房間列表！";
-              return;
-            }
-            const name = (this.onlineNicknameInput?.value || "猛將").trim() || "猛將";
-            this.sendWs({
-              type: "join_room",
-              roomId,
-              name,
-              charIndex: this.p1Index
-            });
-          });
-        }
-
-        const btnAddRoomCom = document.getElementById("btnAddRoomCom");
-        if (btnAddRoomCom) {
-          btnAddRoomCom.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            this.sendWs({
-              type: "add_room_com",
-              comDiff: this.comDifficulty
-            });
-          });
-        }
-
-        const btnRemoveRoomCom = document.getElementById("btnRemoveRoomCom");
-        if (btnRemoveRoomCom) {
-          btnRemoveRoomCom.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            this.sendWs({ type: "remove_room_com" });
-          });
-        }
-
-        const btnLeaveRoom = document.getElementById("btnLeaveRoom");
-        if (btnLeaveRoom) {
-          btnLeaveRoom.addEventListener("click", (e) => {
-            e.currentTarget.blur();
-            this.sendWs({ type: "leave_room" });
-          });
-        }
-
-        this.btnStartMatch.addEventListener("click", (e) => {
-          e.currentTarget.blur();
-          if (this.scene !== "select") return;
-          if (this.playMode === "online") {
-            if (!this.onlineRoom) {
-              this.selectGuideText.textContent = "⚠️ 請先輸入房號 ID 開啟對戰房，或從列表加入房間！";
-              return;
-            }
-            if (!this.onlineIsHost) {
-              this.selectGuideText.textContent = "⏳ 只有 1P 房主可以按下開戰，請等待房主開戰！";
-              return;
-            }
-            this.sendWs({ type: "start_online_match" });
+        document.getElementById("btnConnectWs").addEventListener("click", () => {
+          this._reconnectAttempt = 0;
+          this.connectWebSocket();
+        });
+        document.getElementById("btnCreateRoom").addEventListener("click", () => this.createRoom());
+        document.getElementById("btnJoinRoomById").addEventListener("click", () => {
+          this.joinRoom((this.onlineRoomIdInput?.value || "").trim());
+        });
+        this.btnCopyRoom.addEventListener("click", () => {
+          const roomId = this.onlineRoom ? String(this.onlineRoom.roomId) : "";
+          if (!roomId) return;
+          const done = () => this.setGuide(`已複製房號 ${roomId}，貼給朋友就能加入。`);
+          const fail = () => this.setGuide(`房號是 ${roomId}，請告訴朋友。`);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(roomId).then(done, fail);
           } else {
-            this.startMatch();
+            fail();
+          }
+        });
+
+        // 回到前景時若連線已斷，立刻重連 (手機切 App / 鎖屏後回來)
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden && this.playMode === "online" && !this.wsConnected) {
+            this._reconnectAttempt = 0;
+            this.connectWebSocket();
           }
         });
 
         document.getElementById("btnTopSelect").addEventListener("click", (e) => {
           e.currentTarget.blur();
-          if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
-            this.sendWs({ type: "return_to_room" });
-          } else {
-            this.returnToSelect();
-          }
+          this.requestReturnToSelect();
         });
+
         // 隱藏彩蛋：連續點擊左上角標題 5 下可切換判定框顯示
         const titleH1 = document.querySelector(".title-bar h1");
         if (titleH1) {
@@ -3931,7 +4798,7 @@
         this.canvas.addEventListener("pointerdown", () => {
           if (this.scene === "fight" && this.matchWinner && this.victoryTime > 1.1) {
             if (this.playMode === "online") {
-              if (this.onlineIsHost) this.sendWs({ type: "start_online_match" });
+              if (this.onlineIsHost) this.sendWs({ type: "rematch_request" });
             } else {
               this.startMatch();
             }
@@ -3939,101 +4806,65 @@
         });
       }
 
-      setComMode(isCom) {
-        this.setPlayMode(isCom ? "com" : "pvp");
+      // 讓卡片裁切時對準臉部 (照片有直有橫，固定位置會切到頭)
+      photoFocus(char) {
+        const c = char.faceCrop;
+        if (!c) return "center 18%";
+        const fx = Math.round((c.sx + c.sw / 2) * 100);
+        const fy = Math.round((c.sy + c.sh / 2) * 100);
+        return `${fx}% ${Math.max(0, fy - 8)}%`;
       }
 
-      setPlayMode(mode) {
-        if (this.isMobile && mode === "pvp") mode = "com";
-        this.playMode = mode;
-        this.isComMode = (mode === "com");
-        this.p1Locked = false;
-        this.p2Locked = false;
-        this.selectStep = 1;
-
-        if (this.btnModeCom) this.btnModeCom.classList.toggle("active", mode === "com");
-        if (this.btnModePvp) this.btnModePvp.classList.toggle("active", mode === "pvp");
-        if (this.btnModeOnline) this.btnModeOnline.classList.toggle("active", mode === "online");
-
-        if (this.brawlCountGroup) this.brawlCountGroup.style.display = mode === "com" ? "flex" : "none";
-        if (this.diffSwitchGroup) this.diffSwitchGroup.style.display = (mode === "com" || mode === "online") ? "flex" : "none";
-        if (this.onlineLobbyPanel) this.onlineLobbyPanel.classList.toggle("active", mode === "online");
-
-        const p2KeyBox = document.getElementById("p2KeyBox");
-        if (p2KeyBox) p2KeyBox.style.display = mode === "pvp" ? "block" : "none";
-
-        if (mode === "online") {
-          if (!this.wsConnected) this.connectWebSocket();
-          this.renderInsideRoomUI();
-          this.selectGuideText.textContent = "🌐 連線對戰房 (支援 2～4 人同場大亂鬥)：輸入 ID 開啟房間，其他人即可在列表看到並點擊加入！";
-        } else if (mode === "com") {
-          this.selectGuideText.textContent = "三戰兩勝制 (60秒/局)：支援 2～4 人同場大亂鬥！點選角色與人數後按「立即開戰」！";
-        } else {
-          this.selectGuideText.textContent = "三戰兩勝制 (60秒/局)：1P WASD / F 鎖定 ｜ 2P 方向鍵 / 逗號(,) 鎖定，或按「立即開戰」";
+      selectChar(idx) {
+        if (this.scene !== "select") return;
+        this.p1Index = idx;
+        if (this.playMode === "online" && this.onlineRoom) {
+          this.sendWs({ type: "update_room_player", charIndex: idx });
         }
         this.updateSelectUI();
       }
 
       buildSelectUI() {
-        this.rosterGrid.innerHTML = "";
+        this.rosterGrid.textContent = "";
         this.cardEls = CHARACTER_ROSTER.map((char, idx) => {
-          const card = document.createElement("div");
+          const card = document.createElement("button");
+          card.type = "button";
           card.className = "char-card";
-          card.innerHTML = `
-            <img class="char-thumb" src="${char.photo}" alt="${char.name}" />
-            <div class="char-info">
-              <div class="char-name">${char.name}</div>
-              <div class="char-title">${char.title} (HP ${char.maxHp})</div>
-              <div class="char-moves">${char.lightDesc}<br><span style="color:#ffd166;">${char.heavyDesc}</span></div>
-            </div>
-            <div class="cursor-badges"></div>
-          `;
-
-          card.addEventListener("click", () => {
-            if (this.scene !== "select") return;
-            if (this.playMode === "online") {
-              this.p1Index = idx;
-              if (this.onlineRoom) {
-                this.sendWs({ type: "update_room_player", charIndex: idx });
-              }
-              this.updateSelectUI();
-              return;
-            }
-            if (this.selectStep === 1) {
-              this.p1Index = idx;
-              this.p1Locked = true;
-              this.selectStep = 2;
-            } else {
-              this.p2Index = idx;
-              this.p2Locked = true;
-              this.selectStep = 1;
-            }
-            this.updateSelectUI();
-          });
-
-          card.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            if (this.scene !== "select") return;
-            this.p2Index = idx;
-            this.p2Locked = true;
-            this.updateSelectUI();
-          });
-
+          card.style.backgroundImage = `url("${encodeURI(char.photo)}")`;
+          card.style.backgroundPosition = this.photoFocus(char);
+          const name = document.createElement("span");
+          name.className = "char-name";
+          name.textContent = char.name;
+          const badges = document.createElement("span");
+          badges.className = "cursor-badges";
+          card.append(name, badges);
+          card.addEventListener("click", () => this.selectChar(idx));
           this.rosterGrid.appendChild(card);
           return card;
         });
       }
 
       buildMapUI() {
-        this.mapOptions.innerHTML = "";
+        this.mapOptions.textContent = "";
         this.mapChipEls = MAP_TEMPLATES.map((map, idx) => {
-          const chip = document.createElement("div");
+          const chip = document.createElement("button");
+          chip.type = "button";
           chip.className = `map-chip ${idx === this.mapIndex ? "active" : ""}`;
-          chip.innerHTML = map.preview ? `<img src="${map.preview}" alt="${map.name}" /><span>${map.name}</span>` : `<span>🏯 ${map.name}</span>`;
+          if (map.preview) {
+            const img = document.createElement("img");
+            img.src = map.preview;
+            img.alt = "";
+            chip.appendChild(img);
+          }
+          const label = document.createElement("span");
+          label.textContent = map.preview ? map.name : `🏯 ${map.name}`;
+          chip.appendChild(label);
           chip.addEventListener("click", () => {
+            const online = this.playMode === "online";
+            if (online && !this.onlineIsHost) return; // 連線房只有房主能換地圖
             this.mapIndex = idx; this.currentMap = MAP_TEMPLATES[idx];
             this.mapChipEls.forEach((c, i) => c.classList.toggle("active", i === idx));
-            if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
+            if (online && this.onlineRoom) {
               this.sendWs({ type: "update_room_settings", mapIndex: idx });
             }
           });
@@ -4043,83 +4874,48 @@
       }
 
       updateSelectUI() {
-        if (this.playMode === "online" && this.onlineRoom) {
-          this.cardEls.forEach((card, idx) => {
-            const myPlayer = this.onlineRoom.players.find((p) => p.slot === this.onlineMySlot);
-            card.classList.toggle("p1-cursor", myPlayer ? myPlayer.charIndex === idx : this.p1Index === idx);
-            card.classList.remove("p2-cursor");
-            const badges = card.querySelector(".cursor-badges");
-            badges.innerHTML = "";
-            for (const p of this.onlineRoom.players) {
-              if (p.charIndex === idx) {
-                const b = document.createElement("span");
-                b.className = `badge p${p.slot}`;
-                b.textContent = `${p.slot}P`;
-                badges.appendChild(b);
-              }
-            }
-          });
-          const count = this.onlineRoom.players.length;
-          this.p1StatusEl.textContent = `🏠 房號【${this.onlineRoom.roomId}】(${count}人參戰)`;
-          if (this.onlineIsHost) {
-            this.btnStartMatch.textContent = `🔥 房主開戰 START! (${count}人大亂鬥)`;
-            this.p2StatusEl.textContent = count >= 2 ? "人數已達標，可隨時開戰！" : "請等待第 2 人加入或點【+加入COM】";
-          } else {
-            this.btnStartMatch.textContent = `⏳ 等待 1P 房主開戰...`;
-            this.p2StatusEl.textContent = `你是 ${this.onlineMySlot}P，點選卡片可換角`;
-          }
-          return;
-        }
-
-        this.btnStartMatch.textContent = this.playMode === "com" && this.brawlCount > 2
-          ? `立即開戰 START! (${this.brawlCount}人大亂鬥)`
-          : "立即開戰 START!";
-
+        const inRoom = this.playMode === "online" && this.onlineRoom;
         this.cardEls.forEach((card, idx) => {
-          card.classList.toggle("p1-cursor", idx === this.p1Index);
-          card.classList.toggle("p2-cursor", idx === this.p2Index);
+          card.classList.toggle("selected", idx === this.p1Index);
           const badges = card.querySelector(".cursor-badges");
-          badges.innerHTML = "";
-          if (idx === this.p1Index) {
-            const b1 = document.createElement("span");
-            b1.className = `badge p1 ${this.p1Locked ? "locked" : ""}`;
-            b1.textContent = "1P";
-            badges.appendChild(b1);
-          }
-          if (idx === this.p2Index) {
-            const b2 = document.createElement("span");
-            const label = this.isComMode ? `COM(${COM_DIFFICULTIES[this.comDifficulty].label})` : "2P";
-            b2.className = `badge ${this.isComMode ? "com" : "p2"} ${this.p2Locked ? "locked" : ""}`;
-            b2.textContent = label;
-            badges.appendChild(b2);
-          }
-          if (this.isComMode && this.brawlCount >= 3 && idx === ((this.p2Index + 1) % CHARACTER_ROSTER.length)) {
-            const b3 = document.createElement("span");
-            b3.className = "badge p3";
-            b3.textContent = "3P COM";
-            badges.appendChild(b3);
-          }
-          if (this.isComMode && this.brawlCount >= 4 && idx === ((this.p2Index + 2) % CHARACTER_ROSTER.length)) {
-            const b4 = document.createElement("span");
-            b4.className = "badge p4";
-            b4.textContent = "4P COM";
-            badges.appendChild(b4);
+          badges.textContent = "";
+          const addBadge = (slot, text) => {
+            const b = document.createElement("span");
+            b.className = `badge p${slot}`;
+            b.textContent = text;
+            badges.appendChild(b);
+          };
+          if (inRoom) {
+            for (const p of this.onlineRoom.players) {
+              if (p.charIndex === idx) addBadge(p.slot, `${p.slot}P`);
+            }
+          } else if (idx === this.p1Index) {
+            addBadge(1, "1P");
           }
         });
 
-        const c1 = CHARACTER_ROSTER[this.p1Index];
-        const c2 = CHARACTER_ROSTER[this.p2Index];
-        this.p1StatusEl.textContent = `1P：【${c1.name}】`;
-        if (this.isComMode) {
-          this.p2StatusEl.textContent = this.brawlCount > 2
-            ? `COM (${COM_DIFFICULTIES[this.comDifficulty].label}) × ${this.brawlCount - 1} 人同場亂鬥`
-            : `COM (${COM_DIFFICULTIES[this.comDifficulty].label})：【${c2.name}】`;
-        } else {
-          this.p2StatusEl.textContent = `2P：【${c2.name}】`;
+        const c = CHARACTER_ROSTER[this.p1Index] || CHARACTER_ROSTER[0];
+        document.getElementById("charDetailName").textContent = c.name;
+        document.getElementById("charDetailTitle").textContent = c.title;
+        document.getElementById("charStatHp").style.width = `${Math.max(10, Math.min(100, (c.maxHp / 150) * 100))}%`;
+        document.getElementById("charStatSpeed").style.width = `${Math.max(10, Math.min(100, ((c.speedMult - 0.8) / 0.4) * 100))}%`;
+        const moves = document.getElementById("charDetailMoves");
+        moves.textContent = "";
+        for (const line of String(c.lightDesc || "").split("｜")) {
+          const row = document.createElement("div");
+          row.textContent = line.trim();
+          moves.appendChild(row);
         }
+        const ultRow = document.createElement("div");
+        ultRow.className = "ult";
+        ultRow.textContent = c.heavyDesc || "";
+        moves.appendChild(ultRow);
+        this.btnCharNext.textContent = inRoom ? "確定 ✓" : "下一步 ›";
+
+        this.renderRoomPage();
       }
 
-      configureSpawnPositions(fighters) {
+            configureSpawnPositions(fighters) {
         const topY = this.currentMap.arenaTopY;
         const botY = this.currentMap.arenaBottomY;
         const midY = (topY + botY) / 2;
@@ -4218,9 +5014,6 @@
         this.activeFighters = [this.p1, this.p2];
 
         if (this.isComMode && this.brawlCount >= 3) {
-          const c3Idx = (this.p2Index + 1) % CHARACTER_ROSTER.length;
-          if (c3Idx === this.p1Index) this.p3Index = (c3Idx + 1) % CHARACTER_ROSTER.length;
-          else this.p3Index = c3Idx;
           this.p3.isCOM = true;
           this.p3.isRemote = false;
           this.p3.customNickname = "";
@@ -4232,8 +5025,6 @@
         }
 
         if (this.isComMode && this.brawlCount >= 4) {
-          const c4Idx = (this.p3Index + 1) % CHARACTER_ROSTER.length;
-          this.p4Index = c4Idx === this.p1Index ? (c4Idx + 1) % CHARACTER_ROSTER.length : c4Idx;
           this.p4.isCOM = true;
           this.p4.isRemote = false;
           this.p4.customNickname = "";
@@ -4259,67 +5050,53 @@
         this.selectOverlay.classList.add("hidden");
       }
 
-      returnToSelect() {
+returnToSelect() {
         this.scene = "select";
-        this.p1Locked = false;
-        this.p2Locked = false;
-        this.selectStep = 1;
         this.selectOverlay.classList.remove("hidden");
-        this.updateSelectUI();
+        this.showPage(this.playMode === "online" && !this.onlineRoom ? "lobby" : "room");
       }
 
+      // 鍵盤操作開戰前流程 (電腦)：方向 / WASD 選擇，F / 空白 / Enter 確定，Esc 返回
       updateSelectInput() {
-        if (this.playMode === "online") return;
-        if (!this.isMobile && this.input.wasPressed("Tab")) {
-          this.setComMode(!this.isComMode);
+        const inp = this.input;
+        if (inp.wasPressed("Escape")) {
+          if (this.wzPage !== "mode") this.goBack();
           return;
         }
+        const confirm = inp.wasPressed(["KeyF", "Space", "Enter"]);
+        const left = inp.wasPressed(["KeyA", "ArrowLeft"]);
+        const right = inp.wasPressed(["KeyD", "ArrowRight"]);
+        const up = inp.wasPressed(["KeyW", "ArrowUp"]);
+        const down = inp.wasPressed(["KeyS", "ArrowDown"]);
 
-        const total = CHARACTER_ROSTER.length;
-        const cols = 3;
-        let changed = false;
-
-        if (this.isComMode) {
-          if (this.selectStep === 1) {
-            if (this.input.wasPressed("KeyD")) { this.p1Index = (this.p1Index + 1) % total; changed = true; }
-            if (this.input.wasPressed("KeyA")) { this.p1Index = (this.p1Index - 1 + total) % total; changed = true; }
-            if (this.input.wasPressed("KeyS")) { this.p1Index = (this.p1Index + cols) % total; changed = true; }
-            if (this.input.wasPressed("KeyW")) { this.p1Index = (this.p1Index - cols + total) % total; changed = true; }
-            if (this.input.wasPressed(["KeyF", "Space"])) { this.p1Locked = true; this.selectStep = 2; changed = true; }
-          } else {
-            if (this.input.wasPressed(["KeyD", "ArrowRight"])) { this.p2Index = (this.p2Index + 1) % total; changed = true; }
-            if (this.input.wasPressed(["KeyA", "ArrowLeft"])) { this.p2Index = (this.p2Index - 1 + total) % total; changed = true; }
-            if (this.input.wasPressed(["KeyS", "ArrowDown"])) { this.p2Index = (this.p2Index + cols) % total; changed = true; }
-            if (this.input.wasPressed(["KeyW", "ArrowUp"])) { this.p2Index = (this.p2Index - cols + total) % total; changed = true; }
-            if (this.input.wasPressed(["KeyF", "Space", "Comma", "Enter"])) {
-              this.startMatch();
-              return;
-            }
+        if (this.wzPage === "mode") {
+          const cards = this.modeCardEls.filter((c) => c.offsetParent !== null);
+          if (!cards.length) return;
+          if (left || right) {
+            this.modeFocus = (this.modeFocus + (right ? 1 : -1) + cards.length) % cards.length;
+            this.modeCardEls.forEach((c) => c.classList.remove("focus"));
+            cards[this.modeFocus].classList.add("focus");
+          } else if (confirm) {
+            const card = cards[Math.min(this.modeFocus, cards.length - 1)];
+            this.setPlayMode(card.dataset.mode);
+            this.showPage("char");
           }
-        } else {
-          if (!this.p1Locked) {
-            if (this.input.wasPressed("KeyD")) { this.p1Index = (this.p1Index + 1) % total; changed = true; }
-            if (this.input.wasPressed("KeyA")) { this.p1Index = (this.p1Index - 1 + total) % total; changed = true; }
-            if (this.input.wasPressed("KeyS")) { this.p1Index = (this.p1Index + cols) % total; changed = true; }
-            if (this.input.wasPressed("KeyW")) { this.p1Index = (this.p1Index - cols + total) % total; changed = true; }
-          }
-          if (this.input.wasPressed(["KeyF", "Space"])) { this.p1Locked = !this.p1Locked; changed = true; }
-          if (!this.p2Locked) {
-            if (this.input.wasPressed("ArrowRight")) { this.p2Index = (this.p2Index + 1) % total; changed = true; }
-            if (this.input.wasPressed("ArrowLeft")) { this.p2Index = (this.p2Index - 1 + total) % total; changed = true; }
-            if (this.input.wasPressed("ArrowDown")) { this.p2Index = (this.p2Index + cols) % total; changed = true; }
-            if (this.input.wasPressed("ArrowUp")) { this.p2Index = (this.p2Index - cols + total) % total; changed = true; }
-          }
-          if (this.input.wasPressed(["Comma", "Enter"])) { this.p2Locked = !this.p2Locked; changed = true; }
-          if (this.p1Locked && this.p2Locked) {
-            this.startMatch();
-            return;
-          }
+        } else if (this.wzPage === "char") {
+          const total = CHARACTER_ROSTER.length;
+          const cols = 3;
+          let idx = this.p1Index;
+          if (right) idx = (idx + 1) % total;
+          if (left) idx = (idx - 1 + total) % total;
+          if (down) idx = (idx + cols) % total;
+          if (up) idx = (idx - cols + total) % total;
+          if (idx !== this.p1Index) this.selectChar(idx);
+          else if (confirm) this.goNextFromChar();
+        } else if (this.wzPage === "room") {
+          if (confirm && !this.btnStartMatch.disabled) this.startFromRoom();
         }
-        if (changed) this.updateSelectUI();
       }
 
-      resetRound(keepPartialEnergy = true) {
+            resetRound(keepPartialEnergy = true) {
         for (const f of this.activeFighters) {
           f.reset(keepPartialEnergy);
         }
@@ -4389,30 +5166,35 @@
         const dmgText = `-${actualDmg}${tag}`;
         this.floatingTexts.push(new FloatingText(hitX, hitY - 18, dmgText, color, scale));
 
-        if (this.playMode === "online" && this.onlineIsHost) {
-          this.sendWs({
-            type: "game_event",
-            event: {
-              kind: "hit",
-              hitX: Math.round(hitX),
-              hitY: Math.round(hitY),
-              isHeavyOrUlt,
-              isUlt,
-              dmgText,
-              color,
-              scale
-            }
-          });
-        }
       }
 
       checkCombatHits() {
-        // 支援 2～4 人同場大亂鬥：所有存活角色可互相攻擊判定
-        for (let i = 0; i < this.activeFighters.length; i++) {
-          for (let j = 0; j < this.activeFighters.length; j++) {
-            if (i === j) continue;
-            this.resolveMeleeHit(this.activeFighters[i], this.activeFighters[j]);
+// 先用同一瞬間的狀態找出所有近戰命中，再一起結算：互打就是互中，不會因為誰排在前面而佔便宜
+        const meleeHits = [];
+        for (const attacker of this.activeFighters) {
+          const hitbox = attacker.getActiveHitbox();
+          if (!hitbox) continue;
+          for (const defender of this.activeFighters) {
+            if (defender === attacker) continue;
+            if (attacker.hitTargetsThisSwing.has(defender) || defender.state === "ko" || defender.invulnTimer > 0) continue;
+            const hurtbox = defender.getHurtbox();
+            if (Math.abs(hitbox.groundY - hurtbox.groundY) <= hitbox.depthTolerance && this.rectsOverlap(hitbox, hurtbox)) {
+              const pushDir = (defender.x + defender.width / 2 >= attacker.x + attacker.width / 2) ? 1 : -1;
+              const hitX = pushDir === 1 ? hurtbox.x + 8 : hurtbox.x + hurtbox.width - 8;
+              meleeHits.push({
+                attacker, defender, atk: attacker.currentAttack,
+                facing: attacker.currentAttack.centeredHitbox ? pushDir : attacker.facing,
+                hitX, hitY: hitbox.y + hitbox.height / 2
+              });
+            }
           }
+        }
+        for (const h of meleeHits) {
+          h.attacker.hasHitThisSwing = true;
+          h.attacker.hitTargetsThisSwing.add(h.defender);
+          // 這個 tick 已被別人打中 (剛獲得受擊無敵) 或已倒下：不重複結算
+          if (h.defender.invulnTimer > 0 || h.defender.state === "ko") continue;
+          this.applyHitEffects(h.attacker, h.defender, h.atk, h.facing, h.hitX, h.hitY);
         }
 
         for (const proj of this.projectiles) {
@@ -4429,20 +5211,6 @@
               if (!proj.active) break;
             }
           }
-        }
-      }
-
-      resolveMeleeHit(attacker, defender) {
-        if (attacker.hitTargetsThisSwing.has(defender) || defender.state === "ko" || defender.invulnTimer > 0) return;
-        const hitbox = attacker.getActiveHitbox();
-        if (!hitbox) return;
-        const hurtbox = defender.getHurtbox();
-        if (Math.abs(hitbox.groundY - hurtbox.groundY) <= hitbox.depthTolerance && this.rectsOverlap(hitbox, hurtbox)) {
-          attacker.hasHitThisSwing = true;
-          attacker.hitTargetsThisSwing.add(defender);
-          const pushDir = (defender.x + defender.width / 2 >= attacker.x + attacker.width / 2) ? 1 : -1;
-          const hitX = pushDir === 1 ? hurtbox.x + 8 : hurtbox.x + hurtbox.width - 8;
-          this.applyHitEffects(attacker, defender, attacker.currentAttack, attacker.currentAttack.centeredHitbox ? pushDir : attacker.facing, hitX, hitbox.y + hitbox.height / 2);
         }
       }
 
@@ -4520,6 +5288,56 @@
       // =======================================================================
       // 🌐 嚴格伺服器權威：所有玩家 (1P~4P) 僅發送按鍵給伺服器，並接收狀態平滑插值
       // =======================================================================
+// 自己角色的走位預測：
+      // 伺服器回報的位置永遠比我的按鍵慢一個來回延遲，所以把「最近這段延遲內我下的移動指令」
+      // 疊加到伺服器位置上當作目標，按下方向鍵的瞬間角色就會動，放開也會立刻停。
+      predictOwnFighter(f, dt) {
+        const now = performance.now() / 1000;
+        const free = (f.state === "idle" || f.state === "move" || f.state === "jump") && f.hp > 0;
+        let dirX = 0, dirY = 0;
+        if (free) {
+          if (this.input.isHeld(["KeyA", "ArrowLeft"])) dirX -= 1;
+          if (this.input.isHeld(["KeyD", "ArrowRight"])) dirX += 1;
+          if (this.input.isHeld(["KeyW", "ArrowUp"])) dirY -= 1;
+          if (this.input.isHeld(["KeyS", "ArrowDown"])) dirY += 1;
+        }
+        const mult = f.charDef.speedMult || 1;
+        const diag = (dirX !== 0 && dirY !== 0) ? 1 / Math.SQRT2 : 1;
+        const vx = dirX * diag * CONFIG.moveSpeedX * mult;
+        const vy = dirY * diag * CONFIG.moveSpeedY * mult;
+
+        const latency = Math.min(0.4, (this.rttMs || 90) / 1000 + 0.04);
+        const hist = this._predHist;
+        hist.push({ t: now, dx: vx * dt, dy: vy * dt });
+        while (hist.length && now - hist[0].t > latency) hist.shift();
+        let aheadX = 0, aheadY = 0;
+        for (const h of hist) { aheadX += h.dx; aheadY += h.dy; }
+
+        const minX = 0, maxX = CONFIG.canvasWidth - f.width;
+        const minY = this.currentMap.arenaTopY, maxY = this.currentMap.arenaBottomY;
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        const targetX = clamp(f.netTarget.x + aheadX, minX, maxX);
+        const targetY = clamp(f.netTarget.y + aheadY, minY, maxY);
+
+        if (free) {
+          f.x = clamp(f.x + vx * dt, minX, maxX);
+          f.y = clamp(f.y + vy * dt, minY, maxY);
+          if (dirX !== 0 && dirX !== f.facing) {
+            f.facing = dirX;
+            this._facingHoldUntil = performance.now() + latency * 1000 + 60;
+          }
+          if (f.state !== "jump") f.state = (dirX !== 0 || dirY !== 0) ? "move" : "idle";
+          this._predDir = { x: dirX, y: dirY };
+        } else {
+          this._predDir = null;
+        }
+        // 把本機位置拉回權威目標：能自由移動時輕拉 (不搶手感)，被打 / 出招時緊跟伺服器
+        const pull = Math.min(1, dt * (free ? 10 : 18));
+        f.x += (targetX - f.x) * pull;
+        f.y += (targetY - f.y) * pull;
+        f.z += (f.netTarget.z - f.z) * Math.min(1, dt * 20);
+      }
+
       sendInputToServer() {
         if (this.playMode !== "online" || !this.wsConnected || !this.ws) return;
         if (this.ws.bufferedAmount > 8192) return; // 避免網路壅塞時按鍵封包堆積
@@ -4550,50 +5368,6 @@
           held,
           pressed
         });
-      }
-
-      serializeOnlineState() {
-        return {
-          rn: this.roundNumber,
-          rt: Number(this.roundTimer.toFixed(2)),
-          ri: Number(this.roundIntroTimer.toFixed(2)),
-          kw: this.koWinner,
-          re: this.roundEndReason,
-          mw: this.matchWinner,
-          cs: this.championFighter ? this.championFighter.id : 0,
-          vt: Number(this.victoryTime.toFixed(2)),
-          rst: Number(this.resetTimer.toFixed(2)),
-          fs: this.activeFighters.map((f) => ({
-            id: f.id,
-            x: Math.round(f.x),
-            y: Math.round(f.y),
-            z: Math.round(f.z),
-            fc: f.facing,
-            hp: f.hp,
-            thp: Math.round(f.trailHp),
-            en: Math.round(f.energy),
-            w: f.wins,
-            st: f.state,
-            stt: Number(f.stateTimer.toFixed(2)),
-            at: Number(f.animTime.toFixed(2)),
-            inv: Number(f.invulnTimer.toFixed(2)),
-            ak: f.currentAttack ? f.currentAttack.name : null,
-            lt: f.lockedTargetPos ? [Math.round(f.lockedTargetPos.x), Math.round(f.lockedTargetPos.y)] : null
-          })),
-          ps: this.projectiles.map((p) => ({
-            x: Math.round(p.x),
-            gy: Math.round(p.groundY),
-            z: Math.round(p.z),
-            fc: p.facing,
-            pt: p.projType,
-            w: p.width,
-            h: p.height,
-            ang: Number(p.angle.toFixed(2))
-          })),
-          pk: this.pickups.map((pk) => ({
-            t: pk.type, x: Math.round(pk.x), gy: Math.round(pk.groundY), z: Math.round(pk.z), ft: Number(pk.fuseTimer.toFixed(1))
-          }))
-        };
       }
 
       applyOnlineState(s) {
@@ -4629,12 +5403,18 @@
               f.z = fd.z;
               f.hasNetPos = true;
             }
-            f.facing = fd.fc;
+            const isMe = fd.id === this.onlineMySlot;
+            const serverFree = fd.st === "idle" || fd.st === "move";
+            if (!(isMe && serverFree && performance.now() < this._facingHoldUntil)) f.facing = fd.fc;
             f.hp = fd.hp;
             f.trailHp = fd.thp;
             f.energy = fd.en;
             f.wins = fd.w;
-            f.state = fd.st;
+            if (isMe && serverFree && this._predDir) {
+              f.state = (this._predDir.x !== 0 || this._predDir.y !== 0) ? "move" : "idle";
+            } else {
+              f.state = fd.st;
+            }
             f.stateTimer = fd.stt;
             if (Math.abs((f.animTime || 0) - fd.at) > 0.3) f.animTime = fd.at;
             f.invulnTimer = fd.inv;
@@ -4698,8 +5478,8 @@
           const caster = this.allFighters[(ev.slot || 1) - 1];
           SFX.play("ult");
           this.ultBanner = {
-            fighterName: ev.fighterName,
-            ultTitle: ev.ultTitle,
+            fighterName: caster ? caster.name : ev.fighterName,
+            ultTitle: caster?.charDef?.ultTitle || ev.ultTitle,
             photo: ev.photo || caster?.charDef?.photo,
             faceCrop: ev.faceCrop || caster?.charDef?.faceCrop,
             color: ev.color,
@@ -4715,12 +5495,9 @@
         this.worldTime += dt;
         if (this.scene === "select") { this.updateSelectInput(); return; }
         if (this.input.wasPressed("KeyC")) {
-          if (this.playMode === "online" && this.onlineRoom && this.onlineIsHost) {
-            this.sendWs({ type: "return_to_room" });
-          } else {
-            this.returnToSelect();
-          }
-          return;
+          // 連線時只有房主能用 C 帶全員回房間 (其他人請用選單鍵離開，避免誤觸)
+          if (this.playMode !== "online") { this.returnToSelect(); return; }
+          if (this.onlineRoom && this.onlineIsHost) { this.sendWs({ type: "return_to_room" }); return; }
         }
         // 隱藏彩蛋：連按 B 鍵 5 下切換判定框顯示
         if (this.input.wasPressed("KeyB")) {
@@ -4748,19 +5525,25 @@
         }
         if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
 
-        // 嚴格伺服器權威連線模式：所有玩家 (1P~4P) 僅送出按鍵給伺服器，並對座標做 Lerp 平滑插值渲染
+// 連線模式：伺服器權威。自己的走位在本機先行預測 (不必等封包來回)，其他人用插值平滑顯示
         if (this.playMode === "online") {
           this.sendInputToServer();
-          const fighterLerp = Math.min(1, dt * 16);
+          this._pingTimer -= dt;
+          if (this._pingTimer <= 0 && this.wsConnected) {
+            this._pingTimer = 2;
+            this.sendWs({ type: "ping", t: performance.now() });
+          }
+          const me = this.allFighters[this.onlineMySlot - 1];
+          const fighterLerp = Math.min(1, dt * 20);
           for (const f of this.activeFighters) {
             f.animTime += dt; // 本地持續推進動作幀，避免網路微延遲時動作卡住
             if (f.trailHp > f.hp) f.trailHp = Math.max(f.hp, f.trailHp - 45 * dt);
             if (f.hitFlashTimer > 0) f.hitFlashTimer = Math.max(0, f.hitFlashTimer - dt);
-            if (f.netTarget) {
-              f.x += (f.netTarget.x - f.x) * fighterLerp;
-              f.y += (f.netTarget.y - f.y) * fighterLerp;
-              f.z += (f.netTarget.z - f.z) * fighterLerp;
-            }
+            if (!f.netTarget) continue;
+            if (f === me) { this.predictOwnFighter(f, dt); continue; }
+            f.x += (f.netTarget.x - f.x) * fighterLerp;
+            f.y += (f.netTarget.y - f.y) * fighterLerp;
+            f.z += (f.netTarget.z - f.z) * fighterLerp;
           }
           const projLerp = Math.min(1, dt * 18);
           for (const p of this.projectiles) {
@@ -4815,10 +5598,6 @@
             } else {
               f.applyPhysics(dt, true, this.currentMap);
             }
-          } else if (f.isRemote) {
-            const rInput = this.remoteInputs[f.id];
-            f.update(dt, rInput, this);
-            rInput.endFrame();
           } else {
             f.update(dt, this.input, this);
           }
@@ -4918,18 +5697,6 @@
               this.roundNumber++;
               this.resetRound(false);
             }
-          }
-        }
-
-        // 若為連線模式房主，以 30Hz 同步權威狀態給房內所有玩家
-        if (this.playMode === "online" && this.onlineIsHost && this.wsConnected) {
-          this.netSyncTimer -= dt;
-          if (this.netSyncTimer <= 0) {
-            this.netSyncTimer = 0.032;
-            this.sendWs({
-              type: "game_state",
-              state: this.serializeOnlineState()
-            });
           }
         }
 
@@ -5152,7 +5919,7 @@
         ctx.moveTo(cx - 250, topBannerY + 22); ctx.lineTo(cx + 250, topBannerY + 22);
         ctx.stroke();
 
-        ctx.font = "900 28px Impact, Microsoft JhengHei, sans-serif";
+        ctx.font = "900 28px Impact, Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
         ctx.strokeStyle = "#1a0b24";
         ctx.lineWidth = 6;
         const scoreSummary = this.activeFighters.map((f) => `${f.id}P:${f.wins}勝`).join(" ｜ ");
@@ -5176,7 +5943,7 @@
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = "900 30px Impact, Microsoft JhengHei, sans-serif";
+        ctx.font = "900 30px Impact, Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
         ctx.strokeStyle = "#3d0814";
         ctx.lineWidth = 6;
         const champLine = `${this.matchWinner}  —  【${champ.charDef.title}】`;
@@ -5185,12 +5952,12 @@
         ctx.fillText(champLine, cx, plateY - 14);
 
         if (champ.charDef.winQuote) {
-          ctx.font = "bold 16px Microsoft JhengHei, sans-serif";
+          ctx.font = "bold 16px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.fillStyle = "#ffd166";
           ctx.fillText(champ.charDef.winQuote, cx, plateY + 10);
         }
 
-        ctx.font = "bold 12px Microsoft JhengHei, sans-serif";
+        ctx.font = "bold 12px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
         ctx.fillStyle = "#d9d0e6";
         const hintLine = `點擊畫面 / 按空白鍵立即再戰 (${Math.max(0, this.resetTimer).toFixed(1)}s) ｜ 點擊「重選角色 / 房間」可更換設定`;
         ctx.fillText(hintLine, cx, plateY + 29);
@@ -5241,7 +6008,7 @@
 
         // 回合標籤
         ctx.fillStyle = "#ffd166";
-        ctx.font = "bold 11px Microsoft JhengHei, sans-serif";
+        ctx.font = "bold 11px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
         ctx.textAlign = "center";
         const isMatchPoint = this.activeFighters.filter((f) => f.wins === CONFIG.winsToMatch - 1).length >= 2;
         const roundLabel = isMatchPoint ? "FINAL ROUND" : `ROUND ${this.roundNumber}`;
@@ -5249,7 +6016,7 @@
 
         // 60 秒倒數大數字
         const secNum = Math.ceil(this.roundTimer);
-        ctx.font = "900 30px Impact, sans-serif";
+        ctx.font = "900 30px Impact, Arial Black, sans-serif";
         ctx.fillStyle = isLowTime && Math.floor(this.worldTime * 8) % 2 === 0 ? "#ff4d6d" : "#ffffff";
         ctx.strokeStyle = "#111";
         ctx.lineWidth = 4;
@@ -5257,7 +6024,7 @@
         ctx.fillText(String(secNum).padStart(2, "0"), centerX, topY + 33);
 
         if (isLowTime && !this.koWinner) {
-          ctx.font = "bold 12px Microsoft JhengHei, sans-serif";
+          ctx.font = "bold 12px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.fillStyle = "#ffbe0b";
           ctx.strokeStyle = "#000";
           ctx.lineWidth = 3;
@@ -5288,11 +6055,11 @@
           drawCroppedPhoto(ctx, b.photo, b.faceCrop, centerX - 240, bannerY + 4, 56, 56, 8, false);
           ctx.textAlign = "left";
           ctx.fillStyle = "#ffd166";
-          ctx.font = "bold 15px Microsoft JhengHei, sans-serif";
+          ctx.font = "bold 15px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.fillText(`⚡ ${b.fighterName} 施放超必殺技！`, centerX - 172, bannerY + 24);
           ctx.fillStyle = "#ffffff";
           ctx.strokeStyle = "#16111c"; ctx.lineWidth = 4;
-          ctx.font = "900 26px Microsoft JhengHei, sans-serif";
+          ctx.font = "900 26px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.strokeText(`【${b.ultTitle}】`, centerX - 172, bannerY + 52);
           ctx.fillText(`【${b.ultTitle}】`, centerX - 172, bannerY + 52);
           ctx.restore();
@@ -5304,7 +6071,7 @@
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
           const modeLabel = this.activeFighters.length > 2 ? `${this.activeFighters.length}人大亂鬥・三戰兩勝` : "三戰兩勝";
           const txt = this.roundIntroTimer > 0.45 ? `${roundLabel}  (${modeLabel})` : "FIGHT!!";
-          ctx.font = "900 50px Impact, Microsoft JhengHei, sans-serif";
+          ctx.font = "900 50px Impact, Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
           ctx.strokeStyle = "#16111c"; ctx.lineWidth = 8;
           ctx.fillStyle = this.roundIntroTimer > 0.45 ? "#ffd166" : "#ff4d5a";
           ctx.strokeText(txt, centerX, CONFIG.canvasHeight / 2 - 20);
@@ -5323,11 +6090,11 @@
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
             const scoreLine = this.activeFighters.map((f) => `${f.id}P:${f.wins}勝`).join("  ｜  ");
-            ctx.font = "900 24px Impact, Microsoft JhengHei, sans-serif";
+            ctx.font = "900 24px Impact, Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
             ctx.fillStyle = "#ff4d6d";
             ctx.fillText(`${this.roundEndReason}  ｜  比數  ${scoreLine}`, centerX, CONFIG.canvasHeight / 2 - 58);
 
-            ctx.font = "900 54px Impact, Microsoft JhengHei, sans-serif";
+            ctx.font = "900 54px Impact, Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
             ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 7;
             const mainText = this.matchWinner
               ? `${this.roundEndReason} 勝負已分！`
@@ -5335,7 +6102,7 @@
             ctx.strokeText(mainText, centerX, CONFIG.canvasHeight / 2 - 6);
             ctx.fillText(mainText, centerX, CONFIG.canvasHeight / 2 - 6);
 
-            ctx.font = "bold 17px Microsoft JhengHei, sans-serif"; ctx.fillStyle = "#f4efe6";
+            ctx.font = "bold 17px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif"; ctx.fillStyle = "#f4efe6";
             const subText = this.matchWinner
               ? "即將揭曉三戰兩勝總冠軍..."
               : `準備進入第 ${this.roundNumber + 1} 局 (${Math.max(0, this.resetTimer).toFixed(1)}s)...`;
@@ -5402,7 +6169,7 @@
         ctx.strokeRect(x, ebY, w, ebH);
 
         // 3. 角色名稱、三戰兩勝星號 (★ ☆) 與必殺就緒提示
-        ctx.font = compact ? "bold 11px Microsoft JhengHei, sans-serif" : "bold 13px Microsoft JhengHei, sans-serif";
+        ctx.font = compact ? "bold 11px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif" : "bold 13px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
         ctx.textAlign = alignRight ? "right" : "left";
         ctx.strokeStyle = "#000000"; ctx.lineWidth = 3;
 
@@ -5421,8 +6188,39 @@
         ctx.restore();
       }
 
+      // 依螢幕像素密度設定畫布實際解析度 (上限：電腦 2 倍、手機 1.5 倍，效能不足會自動再降)
+      applyRenderScale() {
+        const rect = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const cap = Math.min(this.maxRenderScale, IS_TOUCH_DEVICE ? 1.5 : 2);
+        let scale = rect.width > 0 ? (rect.width * dpr) / CONFIG.canvasWidth : 1;
+        scale = Math.max(1, Math.min(cap, Math.round(scale * 4) / 4));
+        const targetW = Math.round(CONFIG.canvasWidth * scale);
+        if (scale === RENDER_SCALE && this.canvas.width === targetW) return;
+        RENDER_SCALE = scale;
+        this.canvas.width = targetW;
+        this.canvas.height = Math.round(CONFIG.canvasHeight * scale);
+        CROP_CANVAS_CACHE.clear();
+      }
+
+      // 持續掉幀 (低於約 45 FPS) 時自動降低畫布解析度，優先保住操作流暢
+      trackFrameTime(frameDt) {
+        if (this.scene !== "fight" || frameDt <= 0) return;
+        this.frameTimeEma = this.frameTimeEma * 0.95 + frameDt * 0.05;
+        this.frameSampleCount++;
+        if (this.frameSampleCount >= 150) {
+          this.frameSampleCount = 0;
+          if (this.frameTimeEma > 0.022 && RENDER_SCALE > 1) {
+            this.maxRenderScale = Math.max(1, RENDER_SCALE - 0.25);
+            this.applyRenderScale();
+            this.frameTimeEma = FIXED_STEP;
+          }
+        }
+      }
+
       render() {
         const ctx = this.ctx;
+        ctx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
         ctx.save();
         if (this.shakeTimer > 0) {
           const factor = Math.min(1.5, this.shakeTimer / CONFIG.heavyShakeDuration);
@@ -5442,19 +6240,47 @@
           for (const ft of this.floatingTexts) ft.draw(ctx);
         }
         ctx.restore();
-        if (this.scene === "fight") this.drawHUD(ctx);
+        if (this.scene === "fight") {
+          this.drawHUD(ctx);
+          if (this.playMode === "online") {
+            // 連線品質小標 (右下角)
+            const label = this.wsConnected ? (this.rttMs ? `延遲 ${Math.round(this.rttMs)}ms` : "連線中") : "重新連線中…";
+            ctx.save();
+            ctx.font = "bold 11px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "bottom";
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
+            ctx.strokeText(label, CONFIG.canvasWidth - 8, CONFIG.canvasHeight - 5);
+            ctx.fillStyle = !this.wsConnected ? "#ff8fa3" : (this.rttMs > 180 ? "#ffd166" : "#9ef0b4");
+            ctx.fillText(label, CONFIG.canvasWidth - 8, CONFIG.canvasHeight - 5);
+            ctx.restore();
+          }
+        }
       }
 
-      loop(now) {
-        const dt = Math.min(Math.max(0, (now - this.lastTime) / 1000), 0.05);
+loop(now) {
+        let frameDt = Math.min(Math.max(0, (now - this.lastTime) / 1000), 0.1);
         this.lastTime = now;
+        this.trackFrameTime(frameDt);
+        // 60Hz 螢幕的幀時間會在 16.7ms 上下微幅抖動：貼齊成剛好一步，避免偶爾 0 步 / 2 步造成的微卡頓
+        // (門檻只涵蓋約 55~66Hz；75Hz 以上的螢幕不貼齊，否則遊戲會變快)
+        if (Math.abs(frameDt - FIXED_STEP) < 0.0015) frameDt = FIXED_STEP;
+        this.stepAccumulator += frameDt;
         try {
-          this.update(dt);
+          let steps = 0;
+          while (this.stepAccumulator >= FIXED_STEP - 1e-6 && steps < 4) {
+            this.stepAccumulator -= FIXED_STEP;
+            steps++;
+            this.update(FIXED_STEP);
+            this.input.endFrame();
+          }
+          if (steps === 4) this.stepAccumulator = 0;
           this.render();
         } catch (err) {
           console.error("Game loop error:", err);
+          this.input.endFrame();
         }
-        this.input.endFrame();
         requestAnimationFrame((t) => this.loop(t));
       }
     }

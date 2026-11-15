@@ -13,6 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const os = require("os");
+const { performance } = require("perf_hooks");
 
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT_DIR = __dirname;
@@ -28,8 +29,23 @@ const MIME_TYPES = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json; charset=utf-8"
 };
+
+// 對外公開的靜態檔案白名單
+const PUBLIC_FILES = new Set(["index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"]);
+const PUBLIC_DIRS = ["人物角色"];
+
+// 單一 WebSocket 訊息上限 (遊戲封包都很小，超過即視為惡意並斷線)
+const MAX_WS_PAYLOAD = 16 * 1024;
+// 斷線保留席位秒數 (手機切到背景 / 網路瞬斷後可回到原位)
+const RECONNECT_GRACE_MS = 20000;
+
+// 移除可能被當成 HTML 的字元，並限制長度
+function cleanText(value, maxLen) {
+  return String(value == null ? "" : value).replace(/[<>&"'`\\\u0000-\u001f]/g, "").trim().slice(0, maxLen);
+}
 
 // =========================================================================
 // 1. HTTP 靜態檔案伺服器 (支援中文路徑如 /人物角色/吊車大王.jpg)
@@ -60,12 +76,15 @@ const server = http.createServer((req, res) => {
 
   if (reqPath === "/") reqPath = "/index.html";
 
-  // 防止目錄穿越攻擊
+  // 白名單：只對外提供前端需要的檔案 (不外流 server.js、.git、package.json 等)
   const safePath = path.normalize(reqPath).replace(/^(\.\.[/\\])+/, "");
   const fullPath = path.join(ROOT_DIR, safePath);
-  if (!fullPath.startsWith(ROOT_DIR)) {
-    res.writeHead(403);
-    res.end("Forbidden");
+  const relPath = path.relative(ROOT_DIR, fullPath).split(path.sep).join("/");
+  const isPublicFile = PUBLIC_FILES.has(relPath) ||
+    PUBLIC_DIRS.some((dir) => relPath.startsWith(dir + "/") && !relPath.includes(".."));
+  if (!isPublicFile) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("404 Not Found");
     return;
   }
 
@@ -77,7 +96,11 @@ const server = http.createServer((req, res) => {
     }
     const ext = path.extname(fullPath).toLowerCase();
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
-    res.writeHead(200, { "Content-Type": contentType });
+    // 圖片長快取、程式碼每次重新驗證 (避免手機拿到舊版 index.html)
+    const cacheControl = PUBLIC_DIRS.some((dir) => relPath.startsWith(dir + "/")) || relPath.startsWith("icon")
+      ? "public, max-age=604800"
+      : "no-cache";
+    res.writeHead(200, { "Content-Type": contentType, "Cache-Control": cacheControl });
     fs.createReadStream(fullPath).pipe(res);
   });
 });
@@ -122,6 +145,7 @@ function sendJson(client, data) {
 // =========================================================================
 const clients = new Map(); // clientId -> ClientObject
 const rooms = new Map();   // roomId -> RoomObject
+const pendingSeats = new Map(); // 重連 token -> { roomId, clientId, timer }
 let nextClientSeq = 1;
 
 function serializeRoomSummary(room) {
@@ -139,6 +163,7 @@ function serializeRoomSummary(room) {
       charIndex: p.charIndex,
       isHost: !!p.isHost,
       isCOM: !!p.isCOM,
+      offline: !!p.offline,
       comDiff: p.comDiff || "normal"
     }))
   };
@@ -174,10 +199,66 @@ function removeClientFromRoom(client) {
   const room = rooms.get(client.roomId);
   client.roomId = null;
   if (!room) return;
+  removePlayerFromRoom(room, client.id);
+}
 
-  const leavingPlayer = room.players.find((p) => p.clientId === client.id);
+// 連線中斷 (非主動離開)：保留席位一段時間，讓玩家重連後回到原位
+function holdSeatForReconnect(client) {
+  if (!client.roomId) return;
+  const room = rooms.get(client.roomId);
+  const player = room ? room.players.find((p) => p.clientId === client.id) : null;
+  client.roomId = null;
+  if (!room || !player) return;
+  if (!client.token) { removePlayerFromRoom(room, client.id); return; }
+
+  player.offline = true;
+  if (room.match) room.match.applyPlayerInput(player.slot, [], []);
+  const seatClientId = client.id;
+  const timer = setTimeout(() => {
+    pendingSeats.delete(client.token);
+    const liveRoom = rooms.get(room.roomId);
+    if (liveRoom === room && room.players.some((p) => p.clientId === seatClientId && p.offline)) {
+      removePlayerFromRoom(room, seatClientId);
+    }
+  }, RECONNECT_GRACE_MS);
+  pendingSeats.set(client.token, { roomId: room.roomId, clientId: seatClientId, timer });
+  broadcastRoomState(room);
+}
+
+// 重連：把保留中的席位綁回新的連線
+function tryResumeSeat(client) {
+  const seat = pendingSeats.get(client.token);
+  if (!seat) return false;
+  clearTimeout(seat.timer);
+  pendingSeats.delete(client.token);
+  const room = rooms.get(seat.roomId);
+  const player = room ? room.players.find((p) => p.clientId === seat.clientId) : null;
+  if (!room || !player) return false;
+
+  player.clientId = client.id;
+  player.offline = false;
+  if (room.hostId === seat.clientId) room.hostId = client.id;
+  client.roomId = room.roomId;
+  client.name = player.name;
+
+  if (room.status === "fighting" && room.match) {
+    sendJson(client, {
+      type: "match_started",
+      resumed: true,
+      room: serializeRoomSummary(room),
+      mySlot: player.slot,
+      isHost: !!player.isHost
+    });
+    sendJson(client, { type: "game_state", state: room.match.serializeState() });
+  }
+  broadcastRoomState(room);
+  return true;
+}
+
+function removePlayerFromRoom(room, clientId) {
+  const leavingPlayer = room.players.find((p) => p.clientId === clientId);
   const leavingSlot = leavingPlayer ? leavingPlayer.slot : null;
-  room.players = room.players.filter((p) => p.clientId !== client.id);
+  room.players = room.players.filter((p) => p.clientId !== clientId);
 
   // 檢查是否還有真人玩家
   const humanPlayers = room.players.filter((p) => !p.isCOM);
@@ -188,11 +269,13 @@ function removeClientFromRoom(client) {
     return;
   }
 
-  // 若原房主離開，將第一位真人玩家升為新房主并重新整理 slot (若在等待中)
+  // 若原房主離開，優先將在線的真人玩家升為新房主
   if (!room.players.some((p) => p.isHost && !p.isCOM)) {
-    humanPlayers[0].isHost = true;
-    room.hostId = humanPlayers[0].clientId;
+    const nextHost = humanPlayers.find((p) => !p.offline) || humanPlayers[0];
+    nextHost.isHost = true;
+    room.hostId = nextHost.clientId;
   }
+  const hostPlayer = room.players.find((p) => p.isHost && !p.isCOM) || humanPlayers[0];
 
   if (room.status === "waiting") {
     // 重新排序 slot 為 1..N，確保房主為 1P
@@ -210,7 +293,7 @@ function removeClientFromRoom(client) {
           type: "player_left_match",
           slot: leavingSlot,
           leaverName: leavingPlayer ? leavingPlayer.name : `${leavingSlot}P`,
-          newHostSlot: humanPlayers[0].slot
+          newHostSlot: hostPlayer.slot
         });
       }
     }
@@ -224,6 +307,30 @@ function handleClientMessage(client, msg) {
   if (!msg || typeof msg.type !== "string") return;
 
   switch (msg.type) {
+    case "hello": {
+      // 客戶端自行產生的重連 token：若有保留中的席位就直接接回
+      const token = typeof msg.token === "string" ? msg.token.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) : "";
+      if (token.length < 16 || client.token) return;
+      // 同一個 token 的舊連線若還掛著 (手機換網路時常見的半開連線)，先讓它讓出席位
+      for (const other of Array.from(clients.values())) {
+        if (other !== client && other.token === token && !other.closed) {
+          other.closed = true;
+          holdSeatForReconnect(other);
+          clients.delete(other.id);
+          try { other.socket.destroy(); } catch (_) { }
+        }
+      }
+      client.token = token;
+      const resumed = tryResumeSeat(client);
+      sendJson(client, { type: "hello_ack", resumed });
+      break;
+    }
+
+    case "ping": {
+      sendJson(client, { type: "pong", t: Number(msg.t) || 0 });
+      break;
+    }
+
     case "get_rooms": {
       const list = Array.from(rooms.values()).map(serializeRoomSummary);
       sendJson(client, { type: "room_list", rooms: list });
@@ -232,11 +339,10 @@ function handleClientMessage(client, msg) {
 
     case "create_room": {
       removeClientFromRoom(client);
-      let rawId = String(msg.roomId || "").trim();
+      let rawId = cleanText(msg.roomId, 16);
       if (!rawId) {
         rawId = String(Math.floor(1000 + Math.random() * 9000));
       }
-      rawId = rawId.slice(0, 20);
 
       if (rooms.has(rawId)) {
         sendJson(client, {
@@ -246,10 +352,10 @@ function handleClientMessage(client, msg) {
         return;
       }
 
-      const nickname = String(msg.name || "").trim().slice(0, 12) || `玩家${client.id}`;
+      const nickname = cleanText(msg.name, 12) || `玩家${client.id}`;
       client.name = nickname;
-      const charIndex = Number.isInteger(msg.charIndex) ? msg.charIndex : 0;
-      const mapIndex = Number.isInteger(msg.mapIndex) ? msg.mapIndex : 0;
+      const charIndex = isValidCharIndex(msg.charIndex) ? msg.charIndex : 0;
+      const mapIndex = isValidMapIndex(msg.mapIndex) ? msg.mapIndex : 0;
 
       const room = {
         roomId: rawId,
@@ -277,7 +383,7 @@ function handleClientMessage(client, msg) {
     }
 
     case "join_room": {
-      const targetId = String(msg.roomId || "").trim();
+      const targetId = cleanText(msg.roomId, 16);
       const room = rooms.get(targetId);
       if (!room) {
         sendJson(client, { type: "room_error", message: `找不到房號「${targetId}」，該房間可能已關閉。` });
@@ -300,9 +406,9 @@ function handleClientMessage(client, msg) {
 
       removeClientFromRoom(client);
 
-      const nickname = String(msg.name || "").trim().slice(0, 12) || `玩家${client.id}`;
+      const nickname = cleanText(msg.name, 12) || `玩家${client.id}`;
       client.name = nickname;
-      const charIndex = Number.isInteger(msg.charIndex) ? msg.charIndex : (room.players.length % 6);
+      const charIndex = isValidCharIndex(msg.charIndex) ? msg.charIndex : (room.players.length % CHARACTER_SPECS.length);
 
       // 找出最小的可用 slot (1~4)
       const usedSlots = new Set(room.players.map((p) => p.slot));
@@ -337,11 +443,11 @@ function handleClientMessage(client, msg) {
       if (!room) return;
       const p = room.players.find((pl) => pl.clientId === client.id);
       if (!p) return;
-      if (Number.isInteger(msg.charIndex) && msg.charIndex >= 0 && msg.charIndex < 6) {
+      if (isValidCharIndex(msg.charIndex)) {
         p.charIndex = msg.charIndex;
       }
-      if (typeof msg.name === "string" && msg.name.trim()) {
-        p.name = msg.name.trim().slice(0, 12);
+      if (typeof msg.name === "string" && cleanText(msg.name, 12)) {
+        p.name = cleanText(msg.name, 12);
       }
       broadcastRoomState(room);
       broadcastRoomList();
@@ -352,7 +458,8 @@ function handleClientMessage(client, msg) {
       if (!client.roomId) return;
       const room = rooms.get(client.roomId);
       if (!room || room.hostId !== client.id) return;
-      if (Number.isInteger(msg.mapIndex) && msg.mapIndex >= 0) {
+      if (room.status !== "waiting") return;
+      if (isValidMapIndex(msg.mapIndex)) {
         room.mapIndex = msg.mapIndex;
       }
       broadcastRoomState(room);
@@ -372,7 +479,7 @@ function handleClientMessage(client, msg) {
 
       const comDiff = ["easy", "normal", "hard"].includes(msg.comDiff) ? msg.comDiff : "normal";
       const diffLabel = comDiff === "easy" ? "簡單" : (comDiff === "hard" ? "困難" : "普通");
-      const charIndex = Number.isInteger(msg.charIndex) ? msg.charIndex : ((slot - 1) % 6);
+      const charIndex = isValidCharIndex(msg.charIndex) ? msg.charIndex : ((slot - 1) % CHARACTER_SPECS.length);
 
       room.players.push({
         clientId: `com_${slot}_${Date.now()}`,
@@ -384,6 +491,22 @@ function handleClientMessage(client, msg) {
         comDiff
       });
       room.players.sort((a, b) => a.slot - b.slot);
+      broadcastRoomState(room);
+      broadcastRoomList();
+      break;
+    }
+
+    case "update_room_com": {
+      if (!client.roomId) return;
+      const room = rooms.get(client.roomId);
+      if (!room || room.hostId !== client.id || room.status !== "waiting") return;
+      const com = room.players.find((p) => p.isCOM && p.slot === msg.slot);
+      if (!com) return;
+      if (isValidCharIndex(msg.charIndex)) com.charIndex = msg.charIndex;
+      if (["easy", "normal", "hard"].includes(msg.comDiff)) {
+        com.comDiff = msg.comDiff;
+        com.name = `COM(${msg.comDiff === "easy" ? "簡單" : (msg.comDiff === "hard" ? "困難" : "普通")})`;
+      }
       broadcastRoomState(room);
       broadcastRoomList();
       break;
@@ -414,6 +537,7 @@ function handleClientMessage(client, msg) {
       if (!client.roomId) return;
       const room = rooms.get(client.roomId);
       if (!room || room.hostId !== client.id) return;
+      if (room.status === "fighting" && room.match && !room.match.matchWinner) return;
       if (room.players.length < 2) {
         sendJson(client, {
           type: "room_error",
@@ -544,7 +668,7 @@ const GAME_CONFIG = {
 
 const MAP_BOUNDS = [
   { arenaTopY: 325, arenaBottomY: 522 },
-  { arenaTopY: 245, arenaBottomY: 522 }
+  { arenaTopY: 245, arenaBottomY: 518 }
 ];
 
 const COM_DIFFICULTIES = {
@@ -604,23 +728,40 @@ const CHARACTER_SPECS = [
   }
 ];
 
+function isValidCharIndex(v) {
+  return Number.isInteger(v) && v >= 0 && v < CHARACTER_SPECS.length;
+}
+function isValidMapIndex(v) {
+  return Number.isInteger(v) && v >= 0 && v < MAP_BOUNDS.length;
+}
+
 function rectsOverlap(a, b) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
+const VALID_ACTIONS = new Set(["ACT_UP", "ACT_DOWN", "ACT_LEFT", "ACT_RIGHT", "ACT_JUMP", "ACT_LIGHT", "ACT_HEAVY", "ACT_DASH", "ACT_ULT"]);
+// 按鍵預輸入保留時間：收招 / 硬直 / 網路抖動期間按下的招式，在這段時間內能出就會出
+const INPUT_BUFFER_TIME = 0.14;
+
 class ServerInputBuffer {
   constructor() {
     this.held = new Set();
-    this.pressed = new Set();
+    this.pressed = new Map(); // 動作 -> 剩餘有效秒數
   }
   applyPacket(heldList, pressedList) {
     this.held.clear();
-    if (Array.isArray(heldList)) for (const k of heldList) this.held.add(k);
-    if (Array.isArray(pressedList)) for (const k of pressedList) this.pressed.add(k);
+    if (Array.isArray(heldList)) for (const k of heldList.slice(0, 8)) if (VALID_ACTIONS.has(k)) this.held.add(k);
+    if (Array.isArray(pressedList)) for (const k of pressedList.slice(0, 8)) if (VALID_ACTIONS.has(k)) this.pressed.set(k, INPUT_BUFFER_TIME);
   }
   isHeld(code) { return this.held.has(code); }
   wasPressed(code) { return this.pressed.has(code); }
-  endTick() { this.pressed.clear(); }
+  consume(code) { this.pressed.delete(code); }
+  endTick(dt) {
+    for (const [k, t] of this.pressed) {
+      if (t - dt <= 0) this.pressed.delete(k);
+      else this.pressed.set(k, t - dt);
+    }
+  }
 }
 
 class ServerCOM {
@@ -693,6 +834,7 @@ class ServerCOM {
   }
   isHeld(code) { return this.held.has(code); }
   wasPressed(code) { return this.pressed.has(code); }
+  consume() { }
 }
 
 class ServerProjectile {
@@ -952,9 +1094,11 @@ class ServerFighter {
     if (this.z === 0) this.state = (dirX !== 0 || dirY !== 0) ? "move" : "idle";
 
     if (inputSource.wasPressed("ACT_JUMP") && this.z === 0) {
+      inputSource.consume("ACT_JUMP");
       this.vz = GAME_CONFIG.jumpVelocity; this.state = "jump";
     }
     if (inputSource.wasPressed("ACT_DASH") && this.dashCooldownTimer <= 0) {
+      inputSource.consume("ACT_DASH");
       this.state = "dash"; this.stateTimer = GAME_CONFIG.dashDuration;
       this.invulnTimer = Math.max(this.invulnTimer, GAME_CONFIG.dashInvulnTime);
       this.dashCooldownTimer = GAME_CONFIG.dashCooldown;
@@ -967,6 +1111,7 @@ class ServerFighter {
     }
     if (inputSource.wasPressed("ACT_ULT")) {
       if (Math.floor(this.energy) >= GAME_CONFIG.maxEnergy && this.charDef.attacks.ult) {
+        inputSource.consume("ACT_ULT");
         this.energy = 0;
         this.startAttack(this.charDef.attacks.ult, match);
         match.emitEvent({ kind: "ult", slot: this.id, fighterName: this.name, ultTitle: this.charDef.ultTitle, color: this.charDef.themeColor });
@@ -975,8 +1120,8 @@ class ServerFighter {
       }
     }
     if (this.attackCooldownTimer <= 0) {
-      if (inputSource.wasPressed("ACT_LIGHT")) this.startAttack(this.charDef.attacks.light, match);
-      else if (inputSource.wasPressed("ACT_HEAVY")) this.startAttack(this.charDef.attacks.heavy, match);
+      if (inputSource.wasPressed("ACT_LIGHT")) { inputSource.consume("ACT_LIGHT"); this.startAttack(this.charDef.attacks.light, match); }
+      else if (inputSource.wasPressed("ACT_HEAVY")) { inputSource.consume("ACT_HEAVY"); this.startAttack(this.charDef.attacks.heavy, match); }
     }
     this.applyPhysics(dt, true, match.mapBounds);
   }
@@ -1110,14 +1255,17 @@ class ServerMatch {
     if (this.hitstopTimer > 0) { this.hitstopTimer = Math.max(0, this.hitstopTimer - dt); return; }
     if (!this.koWinner) this.roundTimer = Math.max(0, this.roundTimer - dt);
 
-    for (const f of this.fighters) {
+    this.tickCount = (this.tickCount || 0) + 1;
+    const n = this.fighters.length;
+    for (let k = 0; k < n; k++) {
+      const f = this.fighters[(k + this.tickCount) % n];
       if (f.isCOM) {
         const target = this.getNearestOpponent(f, true);
         if (target && f.comAI) { f.comAI.update(dt, f, target); f.update(dt, f.comAI, this); }
         else f.applyPhysics(dt, true, this.mapBounds);
       } else {
         const inp = this.inputs.get(f.id);
-        if (inp) { f.update(dt, inp, this); inp.endTick(); }
+        if (inp) { f.update(dt, inp, this); inp.endTick(dt); }
       }
     }
 
@@ -1166,21 +1314,30 @@ class ServerMatch {
     }
   }
   checkCombatHits() {
+    // 先用同一個瞬間的狀態找出所有近戰命中，再一起結算。
+    // 若邊找邊結算，席位較前的玩家 (房主 1P) 會先把對手打進硬直、取消對方的出招，互打永遠是房主贏。
+    const meleeHits = [];
     for (let i = 0; i < this.fighters.length; i++) {
+      const att = this.fighters[i];
+      const hb = att.getActiveHitbox();
+      if (!hb) continue;
       for (let j = 0; j < this.fighters.length; j++) {
         if (i === j) continue;
-        const att = this.fighters[i], def = this.fighters[j];
+        const def = this.fighters[j];
         if (att.hitTargetsThisSwing.has(def) || def.state === "ko" || def.invulnTimer > 0) continue;
-        const hb = att.getActiveHitbox();
-        if (!hb) continue;
         const hurt = def.getHurtbox();
         if (Math.abs(hb.groundY - hurt.groundY) <= hb.depthTolerance && rectsOverlap(hb, hurt)) {
-          att.hitTargetsThisSwing.add(def);
           const pushDir = (def.x + def.width / 2 >= att.x + att.width / 2) ? 1 : -1;
           const hitX = pushDir === 1 ? hurt.x + 8 : hurt.x + hurt.width - 8;
-          this.applyHitEffects(att, def, att.currentAttack, att.currentAttack.centeredHitbox ? pushDir : att.facing, hitX, hb.y + hb.height / 2);
+          meleeHits.push({ att, def, atk: att.currentAttack, facing: att.currentAttack.centeredHitbox ? pushDir : att.facing, hitX, hitY: hb.y + hb.height / 2 });
         }
       }
+    }
+    for (const h of meleeHits) {
+      h.att.hitTargetsThisSwing.add(h.def);
+      // 這個 tick 已被別人打中 (剛獲得受擊無敵) 或已倒下：不重複結算
+      if (h.def.invulnTimer > 0 || h.def.state === "ko") continue;
+      this.applyHitEffects(h.att, h.def, h.atk, h.facing, h.hitX, h.hitY);
     }
     for (const proj of this.projectiles) {
       if (!proj.active) continue;
@@ -1329,6 +1486,7 @@ server.on("upgrade", (req, socket) => {
     name: `玩家${clientId}`,
     socket,
     roomId: null,
+    token: "",
     closed: false,
     buffer: Buffer.alloc(0)
   };
@@ -1362,6 +1520,11 @@ server.on("upgrade", (req, socket) => {
         offset = 10;
       }
 
+      // 客戶端封包必須有 mask，且遊戲封包都很小；不合規就直接斷線，避免緩衝區被灌爆
+      if (!isMasked || payloadLen > MAX_WS_PAYLOAD) {
+        socket.destroy();
+        return;
+      }
       const maskLen = isMasked ? 4 : 0;
       const totalFrameLen = offset + maskLen + payloadLen;
       if (client.buffer.length < totalFrameLen) return;
@@ -1378,7 +1541,7 @@ server.on("upgrade", (req, socket) => {
 
       if (opcode === 0x08) {
         // Close frame
-        client.closed = true;
+        cleanup();
         socket.end();
         return;
       } else if (opcode === 0x09) {
@@ -1398,7 +1561,7 @@ server.on("upgrade", (req, socket) => {
   const cleanup = () => {
     if (client.closed) return;
     client.closed = true;
-    removeClientFromRoom(client);
+    holdSeatForReconnect(client);
     clients.delete(clientId);
   };
 
@@ -1407,24 +1570,38 @@ server.on("upgrade", (req, socket) => {
 });
 
 // 嚴格伺服器權威：60 FPS 遊戲物理運算迴圈 (約 16.67ms) + 30Hz 狀態廣播 (避免廣域網/代理塞車)
-let lastTickMs = Date.now();
+// 固定步長 (1/60 秒) 累加器：不論主機忙碌或計時器抖動，遊戲速度與判定都一致
+const FIXED_DT = 1 / 60;
+const MAX_STEPS_PER_WAKE = 5;
+let lastTickMs = performance.now();
+let tickAccumulator = 0;
 let netTickCount = 0;
 setInterval(() => {
-  const now = Date.now();
-  const dt = Math.min(0.05, Math.max(0.001, (now - lastTickMs) / 1000));
+  const now = performance.now();
+  tickAccumulator += Math.min(0.25, Math.max(0, (now - lastTickMs) / 1000));
   lastTickMs = now;
-  netTickCount++;
-  const shouldBroadcast = (netTickCount % 2 === 0);
-  for (const room of rooms.values()) {
-    if (room.status === "fighting" && room.match) {
-      const prevKo = room.match.koWinner;
-      room.match.update(dt);
-      if (shouldBroadcast || room.match.koWinner !== prevKo) {
-        broadcastMatchState(room);
+  let steps = 0;
+  while (tickAccumulator >= FIXED_DT && steps < MAX_STEPS_PER_WAKE) {
+    tickAccumulator -= FIXED_DT;
+    steps++;
+    netTickCount++;
+    const shouldBroadcast = (netTickCount % 2 === 0);
+    for (const room of rooms.values()) {
+      if (room.status === "fighting" && room.match) {
+        const prevKo = room.match.koWinner;
+        room.match.update(FIXED_DT);
+        if (shouldBroadcast || room.match.koWinner !== prevKo) room.needsBroadcast = true;
       }
     }
   }
-}, 1000 / 60);
+  if (steps === MAX_STEPS_PER_WAKE) tickAccumulator = 0;
+  for (const room of rooms.values()) {
+    if (room.needsBroadcast) {
+      room.needsBroadcast = false;
+      if (room.status === "fighting" && room.match) broadcastMatchState(room);
+    }
+  }
+}, 8);
 
 // 定期發送 WebSocket Ping 保持長連線
 setInterval(() => {

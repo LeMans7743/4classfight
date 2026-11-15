@@ -1,0 +1,16 @@
+{
+  "name": "115士長乙4班格鬥大賽",
+  "short_name": "乙4班格鬥",
+  "description": "2～4 人即時連線大亂鬥，三戰兩勝制",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0d0a12",
+  "theme_color": "#0d0a12",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
