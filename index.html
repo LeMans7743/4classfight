@@ -376,15 +376,18 @@
       display: none;
     }
 
-    /* ---- 第 2 頁：角色 ---- */
+    /* ---- 第 2 頁：角色 (支援後續擴充任意數量角色，自動捲動換行) ---- */
     .roster-grid {
       flex: 1.5;
       min-width: 0;
       min-height: 0;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: 1fr;
+      grid-auto-rows: minmax(82px, 1fr);
       gap: 8px;
+      overflow-y: auto;
+      touch-action: pan-y;
+      padding-right: 2px;
     }
 
     .char-card {
@@ -2225,41 +2228,155 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
     }
 
     function drawHeadStatusOverlay(ctx, headX, headY, headW, headH, p, anim) {
+      // 下巴與頸部立體陰影，讓頭像與身體自然銜接
+      ctx.save();
+      ctx.fillStyle = "rgba(12, 6, 20, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(headX + headW / 2, headY + headH + 1, headW * 0.32, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 受擊紅閃特效
       if (p.hitFlashTimer > 0) {
         ctx.save();
-        ctx.fillStyle = "rgba(255, 60, 60, 0.42)";
+        ctx.fillStyle = "rgba(255, 65, 85, 0.45)";
         ctx.beginPath();
         ctx.ellipse(headX + headW / 2, headY + headH / 2, headW / 2, headH / 2, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
+
+      // 滿氣 100% 時額頭/雙眼金色鬥氣星芒
+      if (p.energy >= CONFIG.maxEnergy && !anim.hurtFace) {
+        const glint = 0.7 + Math.sin(p.animTime * 16) * 0.3;
+        const gx = headX + headW * 0.72;
+        const gy = headY + headH * 0.38;
+        ctx.save();
+        ctx.translate(gx, gy);
+        ctx.scale(glint, glint);
+        ctx.fillStyle = "#fff3b0";
+        ctx.strokeStyle = "#ff0054";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, -7); ctx.lineTo(2, -2); ctx.lineTo(7, 0); ctx.lineTo(2, 2);
+        ctx.lineTo(0, 7); ctx.lineTo(-2, 2); ctx.lineTo(-7, 0); ctx.lineTo(-2, -2);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+
       if (anim.hurtFace) {
+        // 頭頂旋轉十字暈眩星 + 臉側冷汗水滴
         const t = p.animTime * 10;
         ctx.save();
-        ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5;
+        ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#16111c"; ctx.lineWidth = 1.4;
         for (let i = 0; i < 3; i++) {
-          const sx = headX + headW / 2 + Math.cos(t + i * 2.1) * 18;
-          const sy = headY - 6 + Math.sin(t + i * 2.1) * 5;
-          ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          const sx = headX + headW / 2 + Math.cos(t + i * 2.1) * 19;
+          const sy = headY - 7 + Math.sin(t + i * 2.1) * 5;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - 4.5); ctx.lineTo(sx + 1.6, sy - 1.6);
+          ctx.lineTo(sx + 4.5, sy); ctx.lineTo(sx + 1.6, sy + 1.6);
+          ctx.lineTo(sx, sy + 4.5); ctx.lineTo(sx - 1.6, sy + 1.6);
+          ctx.lineTo(sx - 4.5, sy); ctx.lineTo(sx - 1.6, sy - 1.6);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
         }
-        ctx.restore();
-      } else if (p.state === "attack_startup" && p.currentAttack?.name === "heavy") {
-        ctx.save();
-        ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 2.5;
-        const vx = headX + headW - 6; const vy = headY + 8;
+        // 漫畫風冷汗滴
+        const dropY = headY + 10 + ((p.animTime * 22) % 8);
+        ctx.fillStyle = "#4cc9f0";
         ctx.beginPath();
-        ctx.moveTo(vx - 5, vy); ctx.lineTo(vx + 5, vy);
-        ctx.moveTo(vx, vy - 5); ctx.lineTo(vx, vy + 5);
+        ctx.moveTo(headX + 3, dropY - 5);
+        ctx.quadraticCurveTo(headX + 7, dropY + 1, headX + 3, dropY + 4);
+        ctx.quadraticCurveTo(headX - 1, dropY + 1, headX + 3, dropY - 5);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      } else if (p.state === "attack_startup" && (p.currentAttack?.name === "heavy" || p.currentAttack?.name === "ult")) {
+        // 重攻擊 / 必殺技蓄力：漫畫十字青筋符號 💢
+        ctx.save();
+        const isUlt = p.currentAttack?.name === "ult";
+        ctx.strokeStyle = isUlt ? "#ffd166" : "#ff0054";
+        ctx.lineWidth = 2.4;
+        const vx = headX + headW - 5; const vy = headY + 8;
+        ctx.beginPath();
+        ctx.moveTo(vx - 5, vy - 2); ctx.quadraticCurveTo(vx - 2, vy - 2, vx - 2, vy - 5);
+        ctx.moveTo(vx + 5, vy - 2); ctx.quadraticCurveTo(vx + 2, vy - 2, vx + 2, vy - 5);
+        ctx.moveTo(vx - 5, vy + 2); ctx.quadraticCurveTo(vx - 2, vy + 2, vx - 2, vy + 5);
+        ctx.moveTo(vx + 5, vy + 2); ctx.quadraticCurveTo(vx + 2, vy + 2, vx + 2, vy + 5);
         ctx.stroke();
         ctx.restore();
       }
     }
 
+    /**
+     * 角色擴充通用骨架繪製器 & 角色規格建構器：
+     * 日後新增第 7、8... 位新角色時，只需將照片放入 `人物角色/`，
+     * 並在 CHARACTER_ROSTER 呼叫 createCharacterSpec({ ... })，
+     * 若未手寫 drawLocalModel，系統會自動用 drawStandardHumanoid 畫出精緻可動全身模型！
+     */
+    function drawStandardHumanoid(ctx, p, anim, style = {}) {
+      const skin = style.skin || "#d99d73";
+      const pants = style.pants || "#2b2d42";
+      const pantsDark = style.pantsDark || "#1b1d2b";
+      const shoes = style.shoes || "#14141f";
+      const sleeve = style.sleeve || p.charDef.themeColor || "#e63946";
+      const cuff = style.cuff || "#ffd166";
+
+      const drawLeg = (angle, dark) => {
+        ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(angle);
+        drawOutlinedRoundRect(ctx, -6, 0, 12, 20, 4, dark ? pantsDark : pants);
+        drawOutlinedRoundRect(ctx, -6, 17, 17, 7, 3, shoes);
+        ctx.fillStyle = cuff; ctx.fillRect(4, 19, 4, 2);
+        ctx.restore();
+      };
+      drawLeg(anim.backLegAngle, true);
+      ctx.save(); ctx.translate(-6, -46 + anim.bobY); ctx.rotate(anim.backArmAngle);
+      drawOutlinedRoundRect(ctx, -4, 0, 9, 18, 4, skin);
+      drawOutlinedRoundRect(ctx, -5, 14, 10, 8, 4, skin);
+      ctx.restore();
+      drawLeg(anim.frontLegAngle, false);
+
+      ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(anim.bodyTilt);
+      if (style.onDrawBackProp) style.onDrawBackProp(ctx, p, anim);
+      if (p.charDef.torsoCrop) {
+        drawCroppedPhoto(ctx, p.charDef.photo, p.charDef.torsoCrop, -19, -32, 38, 34, 7, false);
+      } else {
+        drawOutlinedRoundRect(ctx, -19, -32, 38, 34, 8, sleeve);
+      }
+      ctx.save(); ctx.rotate(anim.headTilt);
+      drawCroppedPhoto(ctx, p.charDef.photo, p.charDef.faceCrop, -20, -76, 40, 46, 14, true);
+      if (style.onDrawHat) style.onDrawHat(ctx, p, anim);
+      drawHeadStatusOverlay(ctx, -20, -76, 40, 46, p, anim);
+      ctx.restore();
+
+      ctx.save(); ctx.translate(8, -24); ctx.rotate(-anim.frontArmAngle);
+      drawOutlinedRoundRect(ctx, -5, -2, 12, 10, 3, sleeve);
+      drawOutlinedRoundRect(ctx, -4, 6, 10, 16, 4, skin);
+      drawOutlinedRoundRect(ctx, -5, 18, 11, 8, 4, skin);
+      ctx.fillStyle = cuff; ctx.fillRect(-4, 14, 10, 3);
+      if (style.onDrawWeapon) style.onDrawWeapon(ctx, p, anim);
+      ctx.restore();
+      ctx.restore();
+      if (style.onDrawAttackFx) style.onDrawAttackFx(ctx, p, anim);
+    }
+
+    function createCharacterSpec(spec) {
+      if (!spec.voice) {
+        spec.voice = { pitch: 1.0, rate: 1.05, ultCry: spec.ultTitle || "超必殺奧義！", winCry: spec.name + "獲勝！" };
+      }
+      if (!spec.drawLocalModel) {
+        spec.drawLocalModel = function (ctx, p, anim) {
+          drawStandardHumanoid(ctx, p, anim, this.modelStyle || {});
+        };
+      }
+      return spec;
+    }
+
     // =========================================================================
-    // 4. 六位角色資料庫 (原版 18 招趣味特色招式與原版傷害，僅血量調整為原版 x1.2)
+    // 4. 角色資料庫 (原版 18 招特色招式與數值，模型細節、配件與專屬音效全面升級)
+    //    ★ 日後擴充新角色：直接於陣列尾端加入 createCharacterSpec({...})，並同步至 server.js 即可！
     // =========================================================================
     const CHARACTER_ROSTER = [
-      {
+      createCharacterSpec({
         id: "crane_king",
         name: "吊車大王",
         title: "霸氣金主・撒幣重機械流",
@@ -2271,9 +2388,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：萬噸天吊・皇室滿天金雨",
         ultTitle: "萬噸天吊・皇室滿天金雨",
         winQuote: "「能用錢解決的，通通都不是問題！」",
+        voice: { pitch: 0.85, rate: 1.06, ultCry: "萬噸天吊！皇室滿天金雨！", winCry: "能用錢解決的，通通都不是問題！" },
         attacks: {
           light: {
             name: "light", style: "money_scatter",
+            castSfx: "cast_coins", hitSfx: "hit_coins",
             startup: 0.05, active: 0.08, recovery: 0.11,
             isProjectile: true, projType: "coins", projCount: 3, projSpeed: 580, projLife: 0.36,
             width: 30, height: 28, offsetX: 8, offsetZ: 18, depthTolerance: 36,
@@ -2282,6 +2401,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "crane_slam",
+            castSfx: "cast_crane", hitSfx: "hit_crane",
             startup: 0.20, active: 0.16, recovery: 0.22,
             width: 116, height: 84, offsetX: 14, offsetZ: 0, depthTolerance: 52,
             damage: 25, hitstun: 0.38, knockbackX: 640, knockbackZ: 320, hitstop: 0.10,
@@ -2289,9 +2409,10 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_crane_gold_rain",
+            castSfx: "cast_crane", hitSfx: "hit_crane", ultSfx: "ult_crane",
             startup: 0.18, active: 0.28, recovery: 0.24,
             superArmor: true,
-            alsoSpawnProjectiles: { name: "ult_proj", projType: "coins", projCount: 5, projSpeed: 640, projLife: 0.65, width: 34, height: 30, offsetX: 10, offsetZ: 18, depthTolerance: 48, damage: 8, hitstun: 0.24, knockbackX: 260, knockbackZ: 120, hitstop: 0.05 },
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "coins", hitSfx: "hit_coins", projCount: 5, projSpeed: 640, projLife: 0.65, width: 34, height: 30, offsetX: 10, offsetZ: 18, depthTolerance: 48, damage: 8, hitstun: 0.24, knockbackX: 260, knockbackZ: 120, hitstop: 0.05 },
             width: 220, height: 110, offsetX: 8, offsetZ: 0, depthTolerance: 74,
             damage: 42, hitstun: 0.50, knockbackX: 780, knockbackZ: 430, hitstop: 0.14,
             slashColor: "#ffe066"
@@ -2302,50 +2423,113 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           const drawLeg = (angle, dark) => {
             ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(angle);
             drawOutlinedRoundRect(ctx, -6, 0, 12, 20, 4, dark ? "#1b1d2b" : "#2b2d42");
-            drawOutlinedRoundRect(ctx, -6, 17, 17, 7, 3, "#111");
+            // 褲管金線條與名牌金釦皮鞋
+            ctx.fillStyle = "#ffd166"; ctx.fillRect(-1, 2, 2, 14);
+            drawOutlinedRoundRect(ctx, -6, 17, 18, 7, 3, "#141118");
+            ctx.fillStyle = "#ffd166"; ctx.fillRect(4, 18, 5, 3);
             ctx.restore();
           };
           drawLeg(anim.backLegAngle, true);
-          ctx.save(); ctx.translate(-6, -46 + anim.bobY); ctx.rotate(anim.backArmAngle);
-          drawOutlinedRoundRect(ctx, -4, 0, 9, 18, 4, skin);
+          // 後手 + 鈔票扇
+          ctx.save(); ctx.translate(-8, -46 + anim.bobY); ctx.rotate(anim.backArmAngle);
+          drawOutlinedRoundRect(ctx, -4, 0, 9, 17, 4, "#d90429");
+          drawOutlinedRoundRect(ctx, -4, 13, 9, 8, 4, skin);
+          drawOutlinedRoundRect(ctx, -9, 16, 13, 7, 2, "#2a9d8f", 1.5);
           ctx.restore();
           drawLeg(anim.frontLegAngle, false);
 
           ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(anim.bodyTilt);
-          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -19, -32, 38, 34, 7, false);
+          // 皇室紅金唐裝護肩與腰帶
+          drawOutlinedRoundRect(ctx, -21, -33, 42, 35, 8, "#b5173a");
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -18, -32, 36, 33, 7, false);
+          drawOutlinedRoundRect(ctx, -19, -3, 38, 6, 2, "#221b29", 1.6);
+          drawOutlinedRoundRect(ctx, -5, -4, 11, 8, 2, "#ffd166", 1.5);
+
+          // 胸前霸氣純金項鍊與「$」金牌
+          const chainBounce = Math.sin(p.animTime * 8) * 1.2;
+          ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(0, -29 + chainBounce, 11, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
+          ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.arc(0, -16 + chainBounce, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
           ctx.save(); ctx.rotate(anim.headTilt);
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -20, -76, 40, 46, 14, true);
           drawHeadStatusOverlay(ctx, -20, -76, 40, 46, p, anim);
           ctx.restore();
 
+          // 前手：紅袖 + 名貴金錶 + 鑽戒拳頭
           ctx.save(); ctx.translate(8, -24); ctx.rotate(-anim.frontArmAngle);
-          drawOutlinedRoundRect(ctx, -5, -2, 12, 10, 3, "#d90429");
-          drawOutlinedRoundRect(ctx, -4, 6, 10, 16, 4, skin);
-          ctx.fillStyle = "#ffd166"; ctx.fillRect(-4, 14, 10, 4); ctx.fillRect(3, 19, 4, 3);
+          drawOutlinedRoundRect(ctx, -5, -2, 12, 11, 3, "#d90429");
+          drawOutlinedRoundRect(ctx, -4, 6, 10, 14, 4, skin);
+          drawOutlinedRoundRect(ctx, -5, 17, 12, 9, 4, skin);
+          // 勞力士金錶與藍寶石錶面
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-5, 13, 12, 4);
+          ctx.fillStyle = "#00f5d4"; ctx.fillRect(-1, 13, 4, 4);
+          // 鑽戒閃光
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(3, 22, 4, 3);
           ctx.restore();
           ctx.restore();
+
+          // 待機/移動時身邊偶爾閃爍貴氣金星
+          if (p.state !== "ko") {
+            const sp = Math.sin(p.animTime * 7);
+            if (sp > 0.2) {
+              ctx.save();
+              ctx.fillStyle = "#ffd166";
+              const sx = -24 + Math.cos(p.animTime * 4) * 6;
+              const sy = -62 + Math.sin(p.animTime * 5) * 8;
+              ctx.fillRect(sx - 4, sy - 1, 8, 2);
+              ctx.fillRect(sx - 1, sy - 4, 2, 8);
+              ctx.restore();
+            }
+          }
 
           if (p.state === "attack_active" && (p.currentAttack?.style === "crane_slam" || p.currentAttack?.style === "ult_crane_gold_rain")) {
             const isUlt = p.currentAttack?.style === "ult_crane_gold_rain";
             const hooks = isUlt ? [58, 128, 195] : [68];
             const dropY = -6 + anim.attackProgress * 6;
             ctx.save();
+            // 上方重型吊車斜臂橫樑
+            drawOutlinedRoundRect(ctx, 28, -220, isUlt ? 190 : 68, 14, 4, "#ffb703");
+            ctx.fillStyle = "#1b1d2b";
+            for (let bx = 36; bx < (isUlt ? 205 : 88); bx += 18) {
+              ctx.fillRect(bx, -218, 8, 10);
+            }
             for (const hx of hooks) {
-              ctx.strokeStyle = isUlt ? "#ffd166" : "#ced4da"; ctx.lineWidth = 4;
-              ctx.beginPath(); ctx.moveTo(hx, -210); ctx.lineTo(hx, dropY - 36); ctx.stroke();
-              drawOutlinedRoundRect(ctx, hx - 20, dropY - 42, 40, 28, 5, isUlt ? "#ff0054" : "#ffb703");
-              ctx.fillStyle = "#ffd166"; ctx.fillRect(hx - 14, dropY - 37, 7, 18); ctx.fillRect(hx - 1, dropY - 37, 7, 18);
-              ctx.strokeStyle = "#f8f9fa"; ctx.lineWidth = 6;
-              ctx.beginPath(); ctx.arc(hx, dropY - 5, 13, -0.3 * Math.PI, 1.15 * Math.PI); ctx.stroke();
-              const r = 24 + anim.attackProgress * (isUlt ? 76 : 58);
+              // 雙鋼索
+              ctx.strokeStyle = isUlt ? "#ffd166" : "#ced4da"; ctx.lineWidth = 2.6;
+              ctx.beginPath();
+              ctx.moveTo(hx - 5, -206); ctx.lineTo(hx - 5, dropY - 38);
+              ctx.moveTo(hx + 5, -206); ctx.lineTo(hx + 5, dropY - 38);
+              ctx.stroke();
+              // 吊車滑輪重錘座 (警示斜紋)
+              drawOutlinedRoundRect(ctx, hx - 21, dropY - 44, 42, 29, 6, isUlt ? "#ff0054" : "#ffb703");
+              ctx.fillStyle = "#1b1d2b";
+              ctx.fillRect(hx - 15, dropY - 39, 7, 19);
+              ctx.fillRect(hx - 3, dropY - 39, 7, 19);
+              ctx.fillRect(hx + 9, dropY - 39, 7, 19);
+              // 鍛造巨型鋼鉤
+              ctx.strokeStyle = "#f8f9fa"; ctx.lineWidth = 6.5; ctx.lineCap = "round";
+              ctx.beginPath(); ctx.arc(hx, dropY - 5, 13, -0.35 * Math.PI, 1.2 * Math.PI); ctx.stroke();
+              // 地面震波與飛濺金磚
+              const r = 24 + anim.attackProgress * (isUlt ? 78 : 58);
               ctx.strokeStyle = isUlt ? "#ffbe0b" : "#ffd166"; ctx.lineWidth = 4;
               ctx.beginPath(); ctx.ellipse(hx, 0, r, 15, 0, 0, Math.PI * 2); ctx.stroke();
+              ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.ellipse(hx, 0, r * 0.6, 9, 0, 0, Math.PI * 2); ctx.stroke();
+              if (isUlt) {
+                for (let g = -1; g <= 1; g += 2) {
+                  const gx = hx + g * (18 + anim.attackProgress * 32);
+                  const gy = -14 - Math.sin(anim.attackProgress * Math.PI) * 26;
+                  drawOutlinedRoundRect(ctx, gx - 8, gy - 5, 16, 10, 2, "#ffd166", 1.5);
+                }
+              }
             }
             ctx.restore();
           }
         }
-      },
-      {
+      }),
+      createCharacterSpec({
         id: "monster_boo",
         name: "狗王",
         title: "怪獸布偶・狂暴連咬流",
@@ -2357,9 +2541,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：深淵狂暴・萬魔六連噬",
         ultTitle: "深淵狂暴・萬魔六連噬",
         winQuote: "「只是輕輕咬一口，幹嘛這麼激動啦～」",
+        voice: { pitch: 1.38, rate: 1.22, ultCry: "深淵狂暴！萬魔六連噬！汪嗚！", winCry: "只是輕輕咬一口，幹嘛這麼激動啦！" },
         attacks: {
           light: {
             name: "light", style: "spin_whip",
+            castSfx: "cast_whip", hitSfx: "hit_whip",
             startup: 0.04, active: 0.12, recovery: 0.10,
             centeredHitbox: true,
             width: 128, height: 44, offsetX: 0, offsetZ: 14, depthTolerance: 40,
@@ -2368,6 +2554,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "frenzy_bite",
+            castSfx: "cast_bite", hitSfx: "hit_bite",
             startup: 0.13, active: 0.32, recovery: 0.19,
             width: 78, height: 54, offsetX: 0, offsetZ: 6, depthTolerance: 44,
             lungeX: 470, multiHitInterval: 0.09,
@@ -2376,6 +2563,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_abyss_frenzy",
+            castSfx: "cast_bite", hitSfx: "hit_bite", ultSfx: "ult_monster",
             startup: 0.12, active: 0.46, recovery: 0.20,
             superArmor: true,
             width: 115, height: 74, offsetX: 0, offsetZ: 2, depthTolerance: 62,
@@ -2388,54 +2576,95 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           const sway = Math.sin(p.animTime * 10) * 3.5;
           const drawFoot = (angle, offset) => {
             ctx.save(); ctx.translate(offset, -14 + anim.bobY); ctx.rotate(angle);
-            drawOutlinedRoundRect(ctx, -9, 0, 19, 14, 7, "#ced4da");
+            drawOutlinedRoundRect(ctx, -9, 0, 20, 14, 7, "#ced4da");
+            // 怪獸爪尖與粉紫肉球
+            ctx.fillStyle = "#e0aaff"; ctx.beginPath(); ctx.arc(2, 7, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(8, 3, 4, 3); ctx.fillRect(8, 8, 4, 3);
             ctx.restore();
           };
           drawFoot(anim.backLegAngle, -7);
           drawFoot(anim.frontLegAngle, 5);
 
           ctx.save(); ctx.translate(0, -14 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          // 背後搖擺小惡魔尾巴與三根深淵觸手
+          ctx.save();
+          ctx.strokeStyle = "#7b2cbf"; ctx.lineWidth = 4; ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(-16, -12);
+          ctx.quadraticCurveTo(-34, -8 + sway, -38, -22 - sway);
+          ctx.stroke();
           for (let i = 0; i < 3; i++) {
-            drawOutlinedRoundRect(ctx, -28 + i * 2, -44 + i * 8 + sway * (i % 2 ? 1 : -1), 16, 7, 3, "#adb5bd", 1.8);
+            const ty = -44 + i * 8 + sway * (i % 2 ? 1 : -1);
+            drawOutlinedRoundRect(ctx, -29 + i * 2, ty, 17, 7, 3.5, i === 1 ? "#c77dff" : "#adb5bd", 1.8);
+            ctx.fillStyle = "#e0aaff";
+            ctx.beginPath(); ctx.arc(-24 + i * 2, ty + 3.5, 1.8, 0, Math.PI * 2); ctx.fill();
           }
+          ctx.restore();
+
           drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -21, -40, 42, 40, 12, false);
+          // 布偶縫線細節
+          ctx.strokeStyle = "rgba(22, 17, 28, 0.55)"; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(0, -36); ctx.lineTo(0, -6); ctx.stroke();
+
           ctx.save(); ctx.rotate(anim.headTilt);
+          // 頭頂怪獸布偶雙角與垂耳
+          const earWiggle = Math.sin(p.animTime * 9) * 2;
+          drawOutlinedRoundRect(ctx, -22, -91 + earWiggle * 0.4, 12, 15, 5, "#9d4edd", 2);
+          drawOutlinedRoundRect(ctx, 10, -91 - earWiggle * 0.4, 12, 15, 5, "#9d4edd", 2);
+          ctx.fillStyle = "#ff9ebb";
+          ctx.beginPath(); ctx.arc(-16, -84, 3, 0, Math.PI * 2); ctx.arc(16, -84, 3, 0, Math.PI * 2); ctx.fill();
+
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -25, -80, 50, 44, 14, false);
           drawHeadStatusOverlay(ctx, -25, -80, 50, 44, p, anim);
           ctx.restore();
 
+          // 前爪與利爪
           ctx.save(); ctx.translate(8, -28); ctx.rotate(-anim.frontArmAngle);
           drawOutlinedRoundRect(ctx, -5, 0, 12, 22, 6, "#dee2e6");
+          ctx.fillStyle = "#9d4edd";
+          ctx.beginPath(); ctx.moveTo(-3, 21); ctx.lineTo(-1, 26); ctx.lineTo(1, 21); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(2, 21); ctx.lineTo(4, 26); ctx.lineTo(6, 21); ctx.fill();
           ctx.restore();
           ctx.restore();
 
           if (p.state === "attack_active" && p.currentAttack?.style === "spin_whip") {
             ctx.save();
             ctx.strokeStyle = "#e0aaff"; ctx.lineWidth = 6;
-            ctx.beginPath(); ctx.ellipse(0, -34, 62, 16, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(0, -34, 64, 17, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "#9d4edd"; ctx.lineWidth = 3.5;
+            ctx.beginPath(); ctx.ellipse(0, -34, 52, 11, 0.15, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
           }
           if (p.state === "attack_active" && (p.currentAttack?.style === "frenzy_bite" || p.currentAttack?.style === "ult_abyss_frenzy")) {
             const isUlt = p.currentAttack?.style === "ult_abyss_frenzy";
             const jawClose = Math.abs(Math.sin(p.animTime * 42)) * (isUlt ? 20 : 14);
             ctx.save();
+            // 深淵黑紫氣旋與抓痕
+            ctx.fillStyle = isUlt ? "rgba(255, 0, 84, 0.22)" : "rgba(157, 78, 221, 0.20)";
+            ctx.beginPath(); ctx.ellipse(46, -38, isUlt ? 68 : 48, isUlt ? 32 : 24, 0, 0, Math.PI * 2); ctx.fill();
             if (isUlt) {
-              ctx.strokeStyle = "rgba(255, 0, 84, 0.75)"; ctx.lineWidth = 5;
-              ctx.beginPath(); ctx.ellipse(45, -38, 70, 32, 0, 0, Math.PI * 2); ctx.stroke();
+              ctx.strokeStyle = "rgba(255, 0, 84, 0.82)"; ctx.lineWidth = 5;
+              ctx.beginPath(); ctx.ellipse(45, -38, 72, 33, 0, 0, Math.PI * 2); ctx.stroke();
             }
+            // 上下顎牙齦弧線
+            ctx.strokeStyle = isUlt ? "#ff0054" : "#7b2cbf"; ctx.lineWidth = 5; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(16, -64 + jawClose); ctx.lineTo(22 + (isUlt ? 6 : 4) * 13, -64 + jawClose); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(16, -10 - jawClose); ctx.lineTo(22 + (isUlt ? 6 : 4) * 13, -10 - jawClose); ctx.stroke();
+
             ctx.fillStyle = isUlt ? "#ffccd5" : "#ffffff";
             ctx.strokeStyle = isUlt ? "#d90429" : "#5a189a"; ctx.lineWidth = 2.2;
             const teethCount = isUlt ? 6 : 4;
             for (let i = 0; i < teethCount; i++) {
               const tx = 20 + i * 13;
-              ctx.beginPath(); ctx.moveTo(tx, -64 + jawClose); ctx.lineTo(tx + 6, -42 + jawClose); ctx.lineTo(tx + 12, -64 + jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
-              ctx.beginPath(); ctx.moveTo(tx, -10 - jawClose); ctx.lineTo(tx + 6, -32 - jawClose); ctx.lineTo(tx + 12, -10 - jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(tx, -64 + jawClose); ctx.lineTo(tx + 6, -41 + jawClose); ctx.lineTo(tx + 12, -64 + jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(tx, -10 - jawClose); ctx.lineTo(tx + 6, -33 - jawClose); ctx.lineTo(tx + 12, -10 - jawClose); ctx.closePath(); ctx.fill(); ctx.stroke();
             }
             ctx.restore();
           }
         }
-      },
-      {
+      }),
+      createCharacterSpec({
         id: "hell_judge",
         name: "地獄黑面潔",
         title: "閻羅審判長・遠程鎖定流",
@@ -2447,9 +2676,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：無間煉獄・閻羅萬鬼陣",
         ultTitle: "無間煉獄・閻羅萬鬼陣",
         winQuote: "「生死簿已簽收，下一位請排隊。」",
+        voice: { pitch: 0.72, rate: 0.98, ultCry: "無間煉獄！閻羅萬鬼陣！審判開始！", winCry: "生死簿已簽收，下一位請排隊。" },
         attacks: {
           light: {
             name: "light", style: "ink_wave",
+            castSfx: "cast_ink", hitSfx: "hit_ink",
             startup: 0.06, active: 0.08, recovery: 0.14,
             isProjectile: true, projType: "ink_slash", projSpeed: 640, projLife: 0.58,
             width: 36, height: 44, offsetX: 8, offsetZ: 12, depthTolerance: 36,
@@ -2458,6 +2689,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "target_hell_pillar",
+            castSfx: "cast_pillar", hitSfx: "hit_pillar",
             startup: 0.25, active: 0.18, recovery: 0.24,
             trackOpponent: true,
             width: 86, height: 110, offsetX: 0, offsetZ: 0, depthTolerance: 48,
@@ -2466,9 +2698,10 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_hell_judgment",
+            castSfx: "cast_pillar", hitSfx: "hit_pillar", ultSfx: "ult_judge",
             startup: 0.20, active: 0.28, recovery: 0.24,
             superArmor: true, trackOpponent: true,
-            alsoSpawnProjectiles: { name: "ult_proj", projType: "ink_slash", projCount: 3, projSpeed: 680, projLife: 0.70, width: 42, height: 50, offsetX: 10, offsetZ: 12, depthTolerance: 48, damage: 10, hitstun: 0.26, knockbackX: 280, knockbackZ: 140, hitstop: 0.055 },
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "ink_slash", hitSfx: "hit_ink", projCount: 3, projSpeed: 680, projLife: 0.70, width: 42, height: 50, offsetX: 10, offsetZ: 12, depthTolerance: 48, damage: 10, hitstun: 0.26, knockbackX: 280, knockbackZ: 140, hitstop: 0.055 },
             width: 190, height: 140, offsetX: 0, offsetZ: 0, depthTolerance: 78,
             damage: 44, hitstun: 0.48, knockbackX: 680, knockbackZ: 450, hitstop: 0.14,
             slashColor: "#ff0054"
@@ -2476,33 +2709,62 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         },
         drawLocalModel(ctx, p, anim) {
           const tasselSway = Math.sin(p.animTime * 6) * 2.5;
-          drawOutlinedRoundRect(ctx, -12 + anim.backLegAngle * 10, -8, 13, 8, 2, "#141118");
-          drawOutlinedRoundRect(ctx, 2 + anim.frontLegAngle * 10, -8, 13, 8, 2, "#141118");
+          // 閻羅厚底官靴
+          drawOutlinedRoundRect(ctx, -12 + anim.backLegAngle * 10, -8, 14, 8, 2, "#141118");
+          drawOutlinedRoundRect(ctx, 2 + anim.frontLegAngle * 10, -8, 14, 8, 2, "#141118");
+          ctx.fillStyle = "#e63946";
+          ctx.fillRect(-11 + anim.backLegAngle * 10, -3, 12, 2);
+          ctx.fillRect(3 + anim.frontLegAngle * 10, -3, 12, 2);
 
           ctx.save(); ctx.translate(0, -8 + anim.bobY); ctx.rotate(anim.bodyTilt);
-          drawOutlinedRoundRect(ctx, -21, -48, 42, 48, 6, "#18141c");
-          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -15, -45, 30, 42, 4, false);
+          // 判官玄黑長袍與紅金鑲邊、玉帶
+          drawOutlinedRoundRect(ctx, -22, -48, 44, 48, 6, "#18141c");
+          ctx.fillStyle = "#e63946"; ctx.fillRect(-21, -6, 42, 4);
+          drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -15, -45, 30, 41, 4, false);
+          drawOutlinedRoundRect(ctx, -20, -18, 40, 5, 2, "#ffb703", 1.5);
+          ctx.fillStyle = "#00f5d4"; ctx.fillRect(-4, -18, 8, 5);
+
+          // 左手懸浮《生死簿》古卷
+          const bookFloat = Math.sin(p.animTime * 5) * 3;
+          ctx.save();
+          ctx.translate(-25, -34 + bookFloat);
+          ctx.rotate(-0.18 + Math.sin(p.animTime * 4) * 0.08);
+          drawOutlinedRoundRect(ctx, -8, -11, 16, 22, 3, "#2b193d", 1.8);
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-6, -9, 3, 18);
+          ctx.fillStyle = "#ff4d6d"; ctx.fillRect(0, -6, 5, 12);
+          ctx.restore();
 
           ctx.save(); ctx.rotate(anim.headTilt);
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -18, -82, 36, 38, 12, true);
-          drawOutlinedRoundRect(ctx, -15, -90, 30, 10, 2, "#221b26");
-          drawOutlinedRoundRect(ctx, -22, -94, 44, 5, 2, "#ffb703");
+          // 閻羅判官烏紗帽 + 左右展角 + 額前金印 + 紅流蘇
+          drawOutlinedRoundRect(ctx, -28, -88 + tasselSway * 0.25, 14, 5, 2, "#18141c", 1.8);
+          drawOutlinedRoundRect(ctx, 14, -88 - tasselSway * 0.25, 14, 5, 2, "#18141c", 1.8);
+          drawOutlinedRoundRect(ctx, -16, -92, 32, 11, 3, "#221b26");
+          drawOutlinedRoundRect(ctx, -23, -95, 46, 5, 2, "#ffb703");
           ctx.fillStyle = "#e63946";
-          ctx.fillRect(-19 + tasselSway, -89, 3, 20);
-          ctx.fillRect(16 + tasselSway, -89, 3, 20);
-          ctx.fillStyle = "#ffd166"; ctx.fillRect(-2, -88, 5, 5);
+          ctx.fillRect(-19 + tasselSway, -89, 3, 21);
+          ctx.fillRect(16 + tasselSway, -89, 3, 21);
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-3, -89, 6, 6);
+          ctx.fillStyle = "#ff0054"; ctx.fillRect(-1.5, -87.5, 3, 3);
           drawHeadStatusOverlay(ctx, -18, -82, 36, 38, p, anim);
           ctx.restore();
 
+          // 右手：寬袍官袖 + 硃砂判官巨筆
           ctx.save(); ctx.translate(8, -38); ctx.rotate(-anim.frontArmAngle);
-          drawOutlinedRoundRect(ctx, -6, -2, 14, 16, 4, "#18141c");
-          ctx.fillStyle = "#ffb703"; ctx.fillRect(4, -24, 4, 26);
-          ctx.fillStyle = "#e63946"; ctx.beginPath(); ctx.moveTo(2, -24); ctx.lineTo(6, -36); ctx.lineTo(10, -24); ctx.fill();
+          drawOutlinedRoundRect(ctx, -6, -2, 15, 17, 4, "#18141c");
+          ctx.fillStyle = "#e63946"; ctx.fillRect(-5, 11, 13, 3);
+          // 判官筆金桿、白玉筆斗與紅墨筆毫
+          drawOutlinedRoundRect(ctx, 3, -25, 6, 28, 2, "#ffb703", 1.6);
+          ctx.fillStyle = "#f8f9fa"; ctx.fillRect(2, -26, 8, 4);
+          ctx.fillStyle = "#18141c";
+          ctx.beginPath(); ctx.moveTo(1, -26); ctx.lineTo(6, -40); ctx.lineTo(11, -26); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#ff0054";
+          ctx.beginPath(); ctx.moveTo(3, -31); ctx.lineTo(6, -40); ctx.lineTo(9, -31); ctx.closePath(); ctx.fill();
           ctx.restore();
           ctx.restore();
         }
-      },
-      {
+      }),
+      createCharacterSpec({
         id: "life_warrior",
         name: "生話戰士",
         title: "柴米油鹽・迴力鏢＆大風車流",
@@ -2514,9 +2776,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：家政奧義・終極龍捲大掃除",
         ultTitle: "家政奧義・終極龍捲大掃除",
         winQuote: "「順手把你們跟戰場一起掃乾淨了！」",
+        voice: { pitch: 1.04, rate: 1.12, ultCry: "家政奧義！終極龍捲大掃除！", winCry: "順手把你們跟戰場一起掃乾淨了！" },
         attacks: {
           light: {
             name: "light", style: "thermos_boomerang",
+            castSfx: "cast_boomerang", hitSfx: "hit_clang",
             startup: 0.06, active: 0.08, recovery: 0.13,
             isProjectile: true, projType: "boomerang", projSpeed: 650, projLife: 0.72,
             width: 30, height: 30, offsetX: 8, offsetZ: 16, depthTolerance: 36,
@@ -2525,6 +2789,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "broom_cyclone",
+            castSfx: "cast_broom", hitSfx: "hit_broom",
             startup: 0.16, active: 0.34, recovery: 0.22,
             centeredHitbox: true, lungeX: 340, multiHitInterval: 0.10,
             width: 158, height: 56, offsetX: 0, offsetZ: 6, depthTolerance: 48,
@@ -2533,9 +2798,10 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_broom_typhoon",
+            castSfx: "cast_broom", hitSfx: "hit_broom", ultSfx: "ult_broom",
             startup: 0.14, active: 0.44, recovery: 0.22,
             superArmor: true, centeredHitbox: true, lungeX: 440, multiHitInterval: 0.085,
-            alsoSpawnProjectiles: { name: "ult_proj", projType: "boomerang", projCount: 3, projSpeed: 700, projLife: 0.85, width: 32, height: 32, offsetX: 8, offsetZ: 16, depthTolerance: 46, damage: 9, hitstun: 0.22, knockbackX: 220, knockbackZ: 90, hitstop: 0.045 },
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "boomerang", hitSfx: "hit_clang", projCount: 3, projSpeed: 700, projLife: 0.85, width: 32, height: 32, offsetX: 8, offsetZ: 16, depthTolerance: 46, damage: 9, hitstun: 0.22, knockbackX: 220, knockbackZ: 90, hitstop: 0.045 },
             width: 220, height: 84, offsetX: 0, offsetZ: 0, depthTolerance: 68,
             damage: 10, hitstun: 0.34, knockbackX: 560, knockbackZ: 310, hitstop: 0.06,
             slashColor: "#ffbe0b"
@@ -2551,6 +2817,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           };
           drawLeg(anim.backLegAngle, true);
 
+          // 後手：拿清潔噴霧瓶
           ctx.save(); ctx.translate(-10, -40 + anim.bobY); ctx.rotate(anim.backArmAngle);
           drawOutlinedRoundRect(ctx, -4, 0, 8, 14, 3, skin);
           drawOutlinedRoundRect(ctx, -9, 12, 18, 17, 4, "#fff", 1.8);
@@ -2561,13 +2828,24 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           drawLeg(anim.frontLegAngle, false);
 
           ctx.save(); ctx.translate(0, -24 + anim.bobY); ctx.rotate(anim.bodyTilt);
-          drawOutlinedRoundRect(ctx, -27, -33, 13, 29, 4, "#6c584c");
-          ctx.fillStyle = "#adb5bd"; ctx.beginPath(); ctx.arc(-27, -12, 6, 0, Math.PI * 2); ctx.fill();
+          // 背後背著不鏽鋼大鍋蓋盾牌
+          drawOutlinedRoundRect(ctx, -28, -34, 14, 30, 5, "#adb5bd");
+          ctx.fillStyle = "#dee2e6"; ctx.fillRect(-26, -30, 4, 22);
+          ctx.fillStyle = "#495057"; ctx.beginPath(); ctx.arc(-28, -19, 4.5, 0, Math.PI * 2); ctx.fill();
 
           drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -18, -32, 36, 34, 6, false);
+          // 腰間攜帶不鏽鋼保溫杯與黃色抹布
+          drawOutlinedRoundRect(ctx, -16, -12, 9, 13, 2, "#ffd166", 1.5);
           drawOutlinedRoundRect(ctx, 9, -13, 8, 16, 2, "#ced4da", 1.8);
+          ctx.fillStyle = "#212529"; ctx.fillRect(9, -13, 8, 4);
 
           ctx.save(); ctx.rotate(anim.headTilt);
+          // 腦後飄揚家政頭巾結
+          const bandFlutter = Math.sin(p.animTime * 9) * 3;
+          ctx.fillStyle = "#e63946"; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(-16, -64); ctx.lineTo(-30, -68 + bandFlutter); ctx.lineTo(-27, -58 + bandFlutter); ctx.closePath();
+          ctx.fill(); ctx.stroke();
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -19, -76, 38, 44, 14, true);
           drawHeadStatusOverlay(ctx, -19, -76, 38, 44, p, anim);
           ctx.restore();
@@ -2578,24 +2856,41 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           const spinAngle = isSpinning ? p.animTime * 34 : -anim.frontArmAngle;
           ctx.rotate(spinAngle);
           drawOutlinedRoundRect(ctx, -4, 0, 9, 14, 3, skin);
+          // 台灣傳統紅毛掃把：木柄 + 金線紮綁 + 扇形密集刷毛紋理
           drawOutlinedRoundRect(ctx, -30, -2, 74, 5, 2, "#a98467", 1.8);
-          ctx.fillStyle = "#c1121f";
-          ctx.beginPath(); ctx.moveTo(38, -10); ctx.lineTo(58, -16); ctx.lineTo(58, 16); ctx.lineTo(38, 10); ctx.closePath();
+          ctx.fillStyle = "#d90429";
+          ctx.beginPath(); ctx.moveTo(38, -9); ctx.lineTo(60, -17); ctx.lineTo(60, 17); ctx.lineTo(38, 9); ctx.closePath();
           ctx.fill(); ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.8; ctx.stroke();
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(37, -9, 4, 18);
+          ctx.strokeStyle = "rgba(255, 209, 102, 0.55)"; ctx.lineWidth = 1.2;
+          for (let b = -11; b <= 11; b += 5.5) {
+            ctx.beginPath(); ctx.moveTo(41, b * 0.5); ctx.lineTo(58, b); ctx.stroke();
+          }
           ctx.restore();
           ctx.restore();
 
-          if (p.state === "attack_active" && p.currentAttack?.style === "ult_broom_typhoon") {
+          if (isSpinning) {
+            const isUlt = p.currentAttack?.style === "ult_broom_typhoon";
             ctx.save();
-            ctx.strokeStyle = "rgba(255, 190, 11, 0.85)"; ctx.lineWidth = 5;
-            ctx.beginPath(); ctx.ellipse(0, -28, 102, 26, 0, 0, Math.PI * 2); ctx.stroke();
-            ctx.strokeStyle = "rgba(82, 183, 136, 0.85)"; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.ellipse(0, -54, 84, 20, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = isUlt ? "rgba(255, 190, 11, 0.88)" : "rgba(231, 111, 81, 0.82)";
+            ctx.lineWidth = isUlt ? 5 : 3.5;
+            ctx.beginPath(); ctx.ellipse(0, -28, isUlt ? 104 : 74, isUlt ? 26 : 18, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "rgba(82, 183, 136, 0.85)"; ctx.lineWidth = isUlt ? 4 : 2.5;
+            ctx.beginPath(); ctx.ellipse(0, -52, isUlt ? 84 : 58, isUlt ? 20 : 14, 0, 0, Math.PI * 2); ctx.stroke();
+            // 旋轉清潔泡沫泡泡特效
+            for (let i = 0; i < (isUlt ? 5 : 3); i++) {
+              const ba = p.animTime * 14 + i * 1.4;
+              const bx = Math.cos(ba) * (isUlt ? 82 : 56);
+              const by = -38 + Math.sin(ba * 1.3) * 18;
+              ctx.fillStyle = "rgba(224, 251, 252, 0.78)";
+              ctx.strokeStyle = "#4cc9f0"; ctx.lineWidth = 1.3;
+              ctx.beginPath(); ctx.arc(bx, by, 4.5 + (i % 2) * 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            }
             ctx.restore();
           }
         }
-      },
-      {
+      }),
+      createCharacterSpec({
         id: "slaking_king",
         name: "請假王",
         title: "一臉懶惰・霸體震地流",
@@ -2606,9 +2901,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：無敵病假單・泰山崩裂震",
         ultTitle: "無敵病假單・泰山崩裂震",
         winQuote: "「今天先請假睡覺，明天再來打…」",
+        voice: { pitch: 0.65, rate: 0.86, ultCry: "無敵病假單！泰山崩裂震！准假！", winCry: "今天先請假睡覺，明天再來打。" },
         attacks: {
           light: {
             name: "light", style: "belly_bump",
+            castSfx: "cast_belly", hitSfx: "hit_belly",
             startup: 0.06, active: 0.14, recovery: 0.12,
             lungeX: 300, // v0.2：移除輕攻擊霸體 (原本三招皆霸體過強)
             width: 68, height: 48, offsetX: 0, offsetZ: 8, depthTolerance: 40,
@@ -2617,6 +2914,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "giga_earthquake",
+            castSfx: "cast_quake", hitSfx: "hit_quake",
             startup: 0.25, active: 0.18, recovery: 0.32, // v0.2：收招 0.25 → 0.32
             centeredHitbox: true, superArmor: true,
             width: 215, height: 70, offsetX: 0, offsetZ: 0, depthTolerance: 66,
@@ -2625,6 +2923,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_slaking_cataclysm",
+            castSfx: "cast_quake", hitSfx: "hit_quake", ultSfx: "ult_slaking",
             startup: 0.22, active: 0.26, recovery: 0.26,
             centeredHitbox: true, superArmor: true,
             width: 330, height: 95, offsetX: 0, offsetZ: 0, depthTolerance: 95,
@@ -2636,6 +2935,9 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           const drawLeg = (angle, dark) => {
             ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(angle);
             drawOutlinedRoundRect(ctx, -9, 0, 18, 18, 6, dark ? "#5c3d28" : "#6f4e37");
+            // 藍白拖鞋細節
+            drawOutlinedRoundRect(ctx, -9, 13, 21, 6, 3, "#f8f9fa", 1.8);
+            ctx.fillStyle = "#0077b6"; ctx.fillRect(-3, 11, 9, 5);
             ctx.restore();
           };
           drawLeg(anim.backLegAngle, true);
@@ -2645,7 +2947,12 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           const furGrad = ctx.createLinearGradient(-26, -38, 26, 0);
           furGrad.addColorStop(0, "#9c6b3e"); furGrad.addColorStop(1, "#6b4523");
           drawOutlinedRoundRect(ctx, -26, -38, 52, 40, 14, furGrad);
-          drawOutlinedRoundRect(ctx, -14, -28, 32, 26, 11, "#e6ccb2", 1.8);
+          // 圓滾滾彈性大肚皮與肚臍
+          drawOutlinedRoundRect(ctx, -14, -29, 34, 27, 12, "#e6ccb2", 1.8);
+          ctx.fillStyle = "#8b5e34"; ctx.beginPath(); ctx.arc(5, -14, 2.2, 0, Math.PI * 2); ctx.fill();
+          // 腰間塞著一疊「病假單」
+          drawOutlinedRoundRect(ctx, -22, -16, 11, 14, 2, "#ffffff", 1.6);
+          ctx.fillStyle = "#e63946"; ctx.fillRect(-19, -13, 5, 5);
 
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
@@ -2656,13 +2963,45 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
 
           ctx.save(); ctx.rotate(anim.headTilt);
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -21, -80, 42, 44, 14, true);
+          // 頭頂綠色睡眠眼罩
+          drawOutlinedRoundRect(ctx, -16, -82, 32, 10, 5, "#52b788", 1.8);
+          ctx.strokeStyle = "#1b4332"; ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(-6, -77, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+          ctx.arc(6, -77, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+          ctx.stroke();
           drawHeadStatusOverlay(ctx, -21, -80, 42, 44, p, anim);
           ctx.restore();
 
           ctx.save(); ctx.translate(10, -28); ctx.rotate(-anim.frontArmAngle);
           drawOutlinedRoundRect(ctx, -7, 0, 16, 25, 7, "#8b5e34");
+          drawOutlinedRoundRect(ctx, -6, 19, 15, 9, 4, "#e6ccb2", 1.8);
           ctx.restore();
           ctx.restore();
+
+          // 待機時飄出「Zzz...」打瞌睡泡泡
+          if (p.state === "idle") {
+            const zPhase = (p.animTime * 1.4) % 1;
+            ctx.save();
+            ctx.globalAlpha = 1 - zPhase * 0.8;
+            ctx.fillStyle = "#fff3b0"; ctx.strokeStyle = "#16111c"; ctx.lineWidth = 2.5;
+            ctx.font = "900 13px Impact, Arial Black, sans-serif";
+            const zx = 18 + zPhase * 16;
+            const zy = -88 - zPhase * 22;
+            ctx.strokeText("Zzz", zx, zy);
+            ctx.fillText("Zzz", zx, zy);
+            ctx.restore();
+          }
+
+          // 輕攻擊肚皮彈跳波紋
+          if (p.state === "attack_active" && p.currentAttack?.style === "belly_bump") {
+            ctx.save();
+            ctx.strokeStyle = "#ff9ebb"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(24 + anim.attackProgress * 18, -32, 22, -0.7, 0.7); ctx.stroke();
+            ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(32 + anim.attackProgress * 24, -32, 16, -0.6, 0.6); ctx.stroke();
+            ctx.restore();
+          }
 
           if (p.state === "attack_active" && (p.currentAttack?.style === "giga_earthquake" || p.currentAttack?.style === "ult_slaking_cataclysm")) {
             const isUlt = p.currentAttack?.style === "ult_slaking_cataclysm";
@@ -2672,17 +3011,26 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
             ctx.beginPath(); ctx.ellipse(0, 0, r, isUlt ? 32 : 22, 0, 0, Math.PI * 2); ctx.stroke();
             ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.ellipse(0, 0, r * 0.65, 18, 0, 0, Math.PI * 2); ctx.stroke();
+            // 震地碎石飛濺
+            for (let i = -2; i <= 2; i++) {
+              if (i === 0) continue;
+              const rx = i * (22 + anim.attackProgress * (isUlt ? 48 : 32));
+              const ry = -8 - Math.sin(anim.attackProgress * Math.PI) * (isUlt ? 30 : 18);
+              drawOutlinedRoundRect(ctx, rx - 5, ry - 4, 10, 8, 2, "#8d8174", 1.5);
+            }
             if (isUlt) {
-              ctx.fillStyle = "#ffbe0b"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 3;
-              ctx.font = "900 24px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
-              ctx.strokeText("准假!!", -28, -96 - anim.attackProgress * 18);
-              ctx.fillText("准假!!", -28, -96 - anim.attackProgress * 18);
+              // 霸氣紅色官印「准假!!」大印章與漫天假單
+              drawOutlinedRoundRect(ctx, -38, -124 - anim.attackProgress * 16, 76, 34, 6, "rgba(230, 57, 70, 0.92)", 2.5);
+              ctx.fillStyle = "#fff3b0"; ctx.strokeStyle = "#5a1010"; ctx.lineWidth = 3;
+              ctx.font = "900 22px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+              ctx.strokeText("准假!!", -30, -100 - anim.attackProgress * 16);
+              ctx.fillText("准假!!", -30, -100 - anim.attackProgress * 16);
             }
             ctx.restore();
           }
         }
-      },
-      {
+      }),
+      createCharacterSpec({
         id: "wind_lion",
         name: "風濕爺",
         title: "鎮風石獅・獅吼＆彈跳石球流",
@@ -2694,9 +3042,11 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         heavyDesc: "★必殺：金門狂風獅吼・天降星隕陣",
         ultTitle: "金門狂風獅吼・天降星隕陣",
         winQuote: "「膝蓋雖然有點痠，但還是我贏了！」",
+        voice: { pitch: 0.76, rate: 0.96, ultCry: "金門狂風獅吼！天降星隕陣！鎮煞！", winCry: "膝蓋雖然有點痠，但還是我贏了！" },
         attacks: {
           light: {
             name: "light", style: "lion_roar",
+            castSfx: "cast_roar", hitSfx: "hit_roar",
             startup: 0.06, active: 0.11, recovery: 0.12,
             width: 86, height: 52, offsetX: 4, offsetZ: 8, depthTolerance: 40,
             damage: 8, hitstun: 0.24, knockbackX: 460, knockbackZ: 120, hitstop: 0.06,
@@ -2704,6 +3054,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           heavy: {
             name: "heavy", style: "bouncing_stone_ball",
+            castSfx: "cast_stone", hitSfx: "hit_stone",
             startup: 0.18, active: 0.08, recovery: 0.22,
             isProjectile: true, projType: "bouncing_orb", projSpeed: 470, projLife: 1.25,
             width: 44, height: 44, offsetX: 8, offsetZ: 0, depthTolerance: 42,
@@ -2712,34 +3063,59 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           },
           ult: {
             name: "ult", style: "ult_wind_lion_storm",
+            castSfx: "cast_roar", hitSfx: "hit_roar", ultSfx: "ult_lion",
             startup: 0.16, active: 0.26, recovery: 0.22,
             superArmor: true,
-            alsoSpawnProjectiles: { name: "ult_proj", projType: "bouncing_orb", projCount: 3, projSpeed: 520, projLife: 1.35, width: 46, height: 46, offsetX: 10, offsetZ: 0, depthTolerance: 50, damage: 15, hitstun: 0.34, knockbackX: 560, knockbackZ: 280, hitstop: 0.08 },
+            alsoSpawnProjectiles: { name: "ult_proj", projType: "bouncing_orb", hitSfx: "hit_stone", projCount: 3, projSpeed: 520, projLife: 1.35, width: 46, height: 46, offsetX: 10, offsetZ: 0, depthTolerance: 50, damage: 15, hitstun: 0.34, knockbackX: 560, knockbackZ: 280, hitstop: 0.08 },
             width: 195, height: 86, offsetX: 4, offsetZ: 0, depthTolerance: 68,
             damage: 38, hitstun: 0.46, knockbackX: 740, knockbackZ: 380, hitstop: 0.14,
             slashColor: "#ffd166"
           }
         },
         drawLocalModel(ctx, p, anim) {
+          const capeWave = Math.sin(p.animTime * 8) * 3.5;
           const drawPaw = (angle, dark) => {
             ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(angle);
             drawOutlinedRoundRect(ctx, -8, 0, 16, 18, 5, dark ? "#6b6157" : "#7d7267");
+            // 護膝繃帶/貼布 (呼應「風濕爺」膝蓋微痠特色) 與石獅白爪
+            ctx.fillStyle = "#f4efe6"; ctx.fillRect(-7, 5, 14, 4);
+            ctx.fillStyle = "#e9c46a"; ctx.fillRect(3, 13, 5, 4);
             ctx.restore();
           };
           drawPaw(anim.backLegAngle, true);
           drawPaw(anim.frontLegAngle, false);
 
           ctx.save(); ctx.translate(0, -18 + anim.bobY); ctx.rotate(anim.bodyTilt);
+          // 金門風獅爺祈福大紅披風 (隨動作飄動)
+          ctx.fillStyle = "#d90429"; ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-16, -36);
+          ctx.quadraticCurveTo(-34, -20 + capeWave, -32, -2 + capeWave);
+          ctx.lineTo(-12, -4);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+
           drawOutlinedRoundRect(ctx, -21, -36, 42, 36, 8, "#8d8174");
           drawCroppedPhoto(ctx, this.photo, this.torsoCrop, -18, -35, 36, 26, 6, false);
+          // 胸前紅彩球結與鎮煞金鈴鐺
+          ctx.fillStyle = "#d90429"; ctx.fillRect(-16, -36, 32, 4);
+          ctx.fillStyle = "#ffd166"; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.arc(0, -33, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = "#16111c"; ctx.fillRect(-2, -33, 4, 2);
 
           ctx.save(); ctx.rotate(anim.headTilt);
+          // 石雕捲毛鬃鬚外圈
+          ctx.fillStyle = "#a59788"; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.8;
+          for (const [mx, my] of [[-24, -68], [-25, -54], [24, -68], [25, -54], [0, -83]]) {
+            ctx.beginPath(); ctx.arc(mx, my, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          }
           drawCroppedPhoto(ctx, this.photo, this.faceCrop, -23, -80, 46, 46, 14, false);
           drawHeadStatusOverlay(ctx, -23, -80, 46, 46, p, anim);
           ctx.restore();
 
           ctx.save(); ctx.translate(8, -28); ctx.rotate(-anim.frontArmAngle);
-          drawOutlinedRoundRect(ctx, -5, 0, 12, 20, 5, "#a59788");
+          drawOutlinedRoundRect(ctx, -5, 0, 13, 21, 5, "#a59788");
+          ctx.fillStyle = "#ffd166"; ctx.fillRect(-4, 13, 11, 3);
           ctx.restore();
           ctx.restore();
 
@@ -2751,12 +3127,17 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
             ctx.beginPath(); ctx.arc(38, -42, r, -0.85, 0.85); ctx.stroke();
             ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(48, -42, r * 0.72, -0.75, 0.75); ctx.stroke();
-            ctx.fillStyle = "#ffd166"; ctx.font = "900 24px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
-            ctx.fillText(isUlt ? "鎮煞狂風!!" : "風!", 42 + anim.attackProgress * 24, -36);
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.75)"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(54, -42, r * 0.45, -0.65, 0.65); ctx.stroke();
+            ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#16111c"; ctx.lineWidth = 4;
+            ctx.font = "900 24px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+            const txt = isUlt ? "鎮煞狂風!!" : "吼!";
+            ctx.strokeText(txt, 42 + anim.attackProgress * 24, -36);
+            ctx.fillText(txt, 42 + anim.attackProgress * 24, -36);
             ctx.restore();
           }
         }
-      }
+      })
     ];
 
     // =========================================================================
@@ -3127,7 +3508,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         if (this.projType === "bouncing_orb") {
           this.vz -= 1500 * dt;
           this.z += this.vz * dt;
-          if (this.z <= 0) { this.z = 0; this.vz = 420; }
+          if (this.z <= 0) { this.z = 0; this.vz = 420; SFX.play("stone_bounce"); }
         } else if (this.vz !== 0) {
           this.z = Math.max(0, this.z + this.vz * dt);
         }
@@ -3145,28 +3526,50 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
 
         if (this.projType === "coins") {
           ctx.translate(cx, cy); ctx.rotate(this.angle);
-          drawOutlinedRoundRect(ctx, -14, -8, 28, 16, 3, "#2a9d8f", 1.8);
-          ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5; ctx.stroke();
+          // 千元大鈔疊 + 閃耀金幣外框與方孔
+          drawOutlinedRoundRect(ctx, -15, -9, 30, 17, 3, "#2a9d8f", 1.8);
+          ctx.strokeStyle = "#a8dadc"; ctx.lineWidth = 1.2;
+          ctx.strokeRect(-11, -6, 22, 11);
+          ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.6; ctx.stroke();
+          ctx.fillStyle = "#e09f3e"; ctx.fillRect(-2.5, -2.5, 5, 5);
         } else if (this.projType === "ink_slash") {
           ctx.translate(cx, cy); ctx.scale(this.facing, 1);
-          ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 8; ctx.lineCap = "round";
+          // 硃砂與玄墨雙層劍氣弧 + 飛濺墨點
+          ctx.strokeStyle = "rgba(255, 0, 84, 0.45)"; ctx.lineWidth = 13; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.arc(-10, 0, 25, -0.95, 0.95); ctx.stroke();
+          ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 7.5;
           ctx.beginPath(); ctx.arc(-10, 0, 24, -0.9, 0.9); ctx.stroke();
           ctx.strokeStyle = "#14101a"; ctx.lineWidth = 4;
           ctx.beginPath(); ctx.arc(-6, 0, 24, -0.8, 0.8); ctx.stroke();
-          ctx.fillStyle = "#fff"; ctx.font = "900 16px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+          ctx.fillStyle = "#14101a";
+          ctx.beginPath(); ctx.arc(-18, -12, 2.5, 0, Math.PI * 2); ctx.arc(-20, 10, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#fff3b0"; ctx.strokeStyle = "#14101a"; ctx.lineWidth = 2.5;
+          ctx.font = "900 16px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+          ctx.strokeText("判", -6, 6);
           ctx.fillText("判", -6, 6);
         } else if (this.projType === "boomerang") {
+          // 旋轉破風光圈 + 不鏽鋼保溫瓶細節
+          ctx.strokeStyle = "rgba(206, 212, 218, 0.55)"; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(cx, cy, 19, 0, Math.PI * 2); ctx.stroke();
           ctx.translate(cx, cy); ctx.rotate(this.angle * 1.4);
           drawOutlinedRoundRect(ctx, -7, -15, 14, 30, 4, "#ced4da", 2);
+          ctx.fillStyle = "#f8f9fa"; ctx.fillRect(-4, -9, 3, 20);
           ctx.fillStyle = "#212529"; ctx.fillRect(-7, -15, 14, 6);
-          ctx.fillStyle = "#52b788"; ctx.fillRect(9, -10, 4, 18);
+          ctx.fillStyle = "#e63946"; ctx.fillRect(-7, -4, 14, 3);
+          ctx.fillStyle = "#52b788"; ctx.fillRect(7, -10, 4, 16);
         } else {
-          ctx.strokeStyle = "rgba(255, 209, 102, 0.8)"; ctx.lineWidth = 3;
+          // 金門鎮風石獅繡球：外圍金光 + 紅彩帶交叉雕紋
+          ctx.strokeStyle = "rgba(255, 209, 102, 0.82)"; ctx.lineWidth = 3;
           ctx.beginPath(); ctx.arc(cx, cy, this.width * 0.65, 0, Math.PI * 2); ctx.stroke();
           ctx.translate(cx, cy); ctx.rotate(this.angle);
           ctx.fillStyle = "#a59788"; ctx.beginPath(); ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2); ctx.fill();
           ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5; ctx.stroke();
+          ctx.strokeStyle = "#d90429"; ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-this.width * 0.38, 0); ctx.lineTo(this.width * 0.38, 0);
+          ctx.moveTo(0, -this.width * 0.38); ctx.lineTo(0, this.width * 0.38);
+          ctx.stroke();
           ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2.5;
           ctx.beginPath(); ctx.arc(0, 0, this.width / 3.2, 0, Math.PI * 1.5); ctx.stroke();
         }
@@ -3205,7 +3608,6 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         this.width = CONFIG.playerWidth;
         this.height = CONFIG.playerHeight;
         this.isCOM = false;
-        this.isRemote = false;
         this.comDiffLabel = "";
         this.customNickname = "";
         this.wins = 0;
@@ -3307,6 +3709,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
               this.state = "knockdown"; this.stateTimer = CONFIG.knockdownDuration;
               this.comboHits = 0;
               this.invulnTimer = Math.max(this.invulnTimer, CONFIG.knockdownDuration + CONFIG.wakeupInvulnTime);
+              SFX.play("knockdown");
               game.spawnDust(this.x + this.width / 2, this.y, 8);
             } else {
               this.state = this.z > 0 ? "jump" : "idle";
@@ -3411,6 +3814,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
 
         if (inputSource.wasPressed(this.controls.jump) && this.z === 0) {
           this.vz = CONFIG.jumpVelocity; this.state = "jump";
+          SFX.play("jump");
           game.spawnDust(this.x + this.width / 2, this.y, 5);
         }
         if (inputSource.wasPressed(this.controls.dash) && this.dashCooldownTimer <= 0) {
@@ -3434,7 +3838,8 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
             game.triggerUltCutIn(this);
             return;
           } else {
-            // 未滿 100% 按必殺鍵時給予明確提示，不可施放
+            // 未滿 100% 按必殺鍵時給予明確提示與提示音，不可施放
+            SFX.play("no_energy");
             game.floatingTexts.push(
               new FloatingText(this.x + this.width / 2, this.getDrawTopY() - 10, `集氣未滿 100% (${Math.floor(this.energy)}%)`, "#adb5bd", 0.9)
             );
@@ -3461,6 +3866,9 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         this.hasHitThisSwing = false;
         this.hitTargetsThisSwing.clear();
         this.projectileSpawned = false;
+        if (attackData.name !== "ult") {
+          SFX.play(attackData.castSfx || (attackData.name === "heavy" ? "heavy" : "light"));
+        }
         if (attackData.trackOpponent && game) {
           const opp = game.getNearestOpponent(this);
           if (opp) {
@@ -3521,8 +3929,13 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         }
         this.x += this.vx * dt; this.y += this.vy * dt;
         if (applyGravity && (this.z > 0 || this.vz !== 0)) {
+          const wasHigh = this.z > 8;
           this.vz -= CONFIG.gravity * dt; this.z += this.vz * dt;
-          if (this.z <= 0) { this.z = 0; this.vz = 0; if (this.state === "jump") this.state = "idle"; }
+          if (this.z <= 0) {
+            this.z = 0; this.vz = 0;
+            if (this.state === "jump") this.state = "idle";
+            if (wasHigh && this.state !== "ko") SFX.play("land");
+          }
         }
         const topY = mapDef ? mapDef.arenaTopY : CONFIG.arenaTopY;
         const botY = mapDef ? mapDef.arenaBottomY : CONFIG.arenaBottomY;
@@ -3544,18 +3957,26 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           for (const pxOff of pillars) {
             const px = tx + pxOff;
             if (this.state === "attack_startup") {
+              // 閻羅法陣預警：雙圈符文陣 + 「閻」字封印
               ctx.strokeStyle = isUlt ? "#ff0054" : "#ffbe0b"; ctx.lineWidth = 3;
               ctx.beginPath(); ctx.ellipse(px, ty, 40 * anim.attackProgress + 10, 14, 0, 0, Math.PI * 2); ctx.stroke();
               ctx.fillStyle = "rgba(230, 57, 70, 0.35)";
               ctx.beginPath(); ctx.ellipse(px, ty, 40, 14, 0, 0, Math.PI * 2); ctx.fill();
+              ctx.fillStyle = "rgba(255, 209, 102, 0.78)";
+              ctx.font = "900 15px Microsoft JhengHei, PingFang TC, Noto Sans TC, Noto Sans CJK TC, sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("閻", px, ty + 5);
             } else if (this.state === "attack_active") {
-              const grad = ctx.createLinearGradient(px, ty, px, ty - 135);
-              grad.addColorStop(0, isUlt ? "rgba(255, 0, 84, 0.95)" : "rgba(230, 57, 70, 0.95)");
-              grad.addColorStop(1, "rgba(255, 183, 3, 0.1)");
-              ctx.fillStyle = grad; ctx.fillRect(px - 38, ty - 130, 76, 130);
-              ctx.fillStyle = "#fff3b0"; ctx.fillRect(px - 14, ty - 125, 28, 125);
+              const grad = ctx.createLinearGradient(px, ty, px, ty - 140);
+              grad.addColorStop(0, isUlt ? "rgba(255, 0, 84, 0.96)" : "rgba(230, 57, 70, 0.96)");
+              grad.addColorStop(0.65, "rgba(181, 23, 158, 0.75)");
+              grad.addColorStop(1, "rgba(255, 183, 3, 0.08)");
+              ctx.fillStyle = grad; ctx.fillRect(px - 38, ty - 135, 76, 135);
+              ctx.fillStyle = "#fff3b0"; ctx.fillRect(px - 14, ty - 130, 28, 130);
               ctx.strokeStyle = "#ffbe0b"; ctx.lineWidth = 4;
               ctx.beginPath(); ctx.ellipse(px, ty, 44, 15, 0, 0, Math.PI * 2); ctx.stroke();
+              ctx.strokeStyle = "#ff0054"; ctx.lineWidth = 2.5;
+              ctx.beginPath(); ctx.ellipse(px, ty - 45, 34, 10, 0, 0, Math.PI * 2); ctx.stroke();
             }
           }
           ctx.restore();
@@ -3631,6 +4052,18 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           ctx.restore();
         }
 
+        // 霸體 (Super Armor) 金色護盾外框提示
+        if (this.currentAttack?.superArmor && (this.state === "attack_startup" || this.state === "attack_active")) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 190, 11, 0.88)";
+          ctx.fillStyle = "rgba(255, 209, 102, 0.14)";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(centerX, footY - this.height * 0.48, 34, 52, 0, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+          ctx.restore();
+        }
+
         if (this.state === "attack_startup" && (this.currentAttack?.name === "heavy" || this.currentAttack?.name === "ult")) {
           const isUlt = this.currentAttack?.name === "ult";
           ctx.strokeStyle = isUlt ? "#ff0054" : "#ffd166"; ctx.lineWidth = isUlt ? 5 : 3;
@@ -3642,7 +4075,9 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         if (this.invulnTimer > 0.08 && Math.floor(this.animTime * 28) % 2 === 0) {
           ctx.globalAlpha = 0.62;
         }
-        ctx.translate(centerX, footY);
+        // 受擊瞬間左右抖動 (隨受擊閃光衰減)
+        const hitJitter = this.hitFlashTimer > 0 ? (Math.random() * 2 - 1) * 4.5 * (this.hitFlashTimer / 0.12) : 0;
+        ctx.translate(centerX + hitJitter, footY);
         ctx.scale(this.facing, 1);
         if (anim.isKO) { ctx.rotate(-Math.PI / 2); ctx.translate(16, 12); }
         else { ctx.scale(anim.squashX, anim.squashY); }
@@ -3715,56 +4150,383 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
     }
 
     // =========================================================================
-    // 7.5 街機合成音效 (Web Audio API，零外部音檔) & 聚會掉落道具
+    // 7.5 多層次街機合成音效引擎 + 角色語音合成 (Web Audio API + SpeechSynthesis)
+    //     支援超過 28 種角色專屬出招、命中、環境與動作音效，亦可掛載外部音檔
     // =========================================================================
     class SoundFX {
       constructor() {
         this.ctx = null;
+        this.whiteNoiseBuf = null;
+        this.pinkNoiseBuf = null;
+        this.customAudio = new Map(); // 若未來放入外部音檔可透過 registerAudioFile(kind, url) 覆蓋
+        this.lastPlayMs = new Map();
         this.muted = false;
         try { this.muted = localStorage.getItem("tunshi_muted") === "1"; } catch (_) { }
       }
+
+      registerAudioFile(kind, url) {
+        if (!url || typeof Audio === "undefined") return;
+        const a = new Audio(url);
+        a.preload = "auto";
+        this.customAudio.set(kind, a);
+      }
+
       unlock() {
         if (this.muted) return;
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
         if (!this.ctx) this.ctx = new AC();
         if (this.ctx.state === "suspended") this.ctx.resume().catch(() => { });
+        this._ensureNoiseBuffers();
       }
+
+      _ensureNoiseBuffers() {
+        if (!this.ctx || this.whiteNoiseBuf) return;
+        try {
+          const sr = this.ctx.sampleRate;
+          const len = sr; // 1.0 秒噪音取樣池
+          const wBuf = this.ctx.createBuffer(1, len, sr);
+          const pBuf = this.ctx.createBuffer(1, len, sr);
+          const wData = wBuf.getChannelData(0);
+          const pData = pBuf.getChannelData(0);
+          let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+          for (let i = 0; i < len; i++) {
+            const white = Math.random() * 2 - 1;
+            wData[i] = white;
+            b0 = 0.99886 * b0 + white * 0.0555179;
+            b1 = 0.99332 * b1 + white * 0.0750759;
+            b2 = 0.96900 * b2 + white * 0.1538520;
+            b3 = 0.86650 * b3 + white * 0.3104856;
+            b4 = 0.55000 * b4 + white * 0.5329522;
+            b5 = -0.7616 * b5 - white * 0.0168980;
+            pData[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+            b6 = white * 0.115926;
+          }
+          this.whiteNoiseBuf = wBuf;
+          this.pinkNoiseBuf = pBuf;
+        } catch (_) { }
+      }
+
       toggleMute() {
         this.muted = !this.muted;
         try { localStorage.setItem("tunshi_muted", this.muted ? "1" : "0"); } catch (_) { }
+        if (this.muted && window.speechSynthesis) {
+          try { window.speechSynthesis.cancel(); } catch (_) { }
+        }
         return this.muted;
       }
-      play(kind) {
-        if (this.muted || !this.ctx || this.ctx.state !== "running") return;
-        const t = this.ctx.currentTime;
+
+      // 合成振盪器基礎層
+      _tone(type, fStart, fEnd, dur, vol, delay = 0) {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime + delay;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        if (kind === "light") {
-          osc.type = "triangle"; osc.frequency.setValueAtTime(340, t); osc.frequency.exponentialRampToValueAtTime(110, t + 0.07);
-          gain.gain.setValueAtTime(0.14, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-          osc.start(t); osc.stop(t + 0.07);
-        } else if (kind === "heavy") {
-          osc.type = "sawtooth"; osc.frequency.setValueAtTime(190, t); osc.frequency.exponentialRampToValueAtTime(52, t + 0.16);
-          gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-          osc.start(t); osc.stop(t + 0.16);
-        } else if (kind === "ult") {
-          osc.type = "square"; osc.frequency.setValueAtTime(220, t); osc.frequency.exponentialRampToValueAtTime(880, t + 0.25);
-          gain.gain.setValueAtTime(0.20, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-          osc.start(t); osc.stop(t + 0.28);
-        } else if (kind === "dash") {
-          osc.type = "sine"; osc.frequency.setValueAtTime(420, t); osc.frequency.exponentialRampToValueAtTime(180, t + 0.08);
-          gain.gain.setValueAtTime(0.09, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-          osc.start(t); osc.stop(t + 0.08);
-        } else if (kind === "pickup") {
-          osc.type = "sine"; osc.frequency.setValueAtTime(520, t); osc.frequency.setValueAtTime(780, t + 0.06);
-          gain.gain.setValueAtTime(0.16, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-          osc.start(t); osc.stop(t + 0.16);
-        } else if (kind === "bomb" || kind === "ko") {
-          osc.type = "sawtooth"; osc.frequency.setValueAtTime(130, t); osc.frequency.exponentialRampToValueAtTime(34, t + 0.28);
-          gain.gain.setValueAtTime(0.26, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.30);
-          osc.start(t); osc.stop(t + 0.30);
+        osc.type = type;
+        osc.frequency.setValueAtTime(Math.max(16, fStart), t);
+        if (fEnd && fEnd !== fStart) {
+          osc.frequency.exponentialRampToValueAtTime(Math.max(16, fEnd), t + dur);
+        }
+        gain.gain.setValueAtTime(Math.max(0.001, vol), t);
+        gain.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + dur + 0.01);
+      }
+
+      // 濾波噪音層 (風聲、爆炸、揮擊破風、金屬敲擊、咬合碎裂)
+      _noise(dur, filterType, fStart, fEnd, vol, q = 1.5, delay = 0, usePink = false) {
+        this._ensureNoiseBuffers();
+        const buf = usePink ? this.pinkNoiseBuf : this.whiteNoiseBuf;
+        if (!this.ctx || !buf) return;
+        const t = this.ctx.currentTime + delay;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = filterType;
+        filter.Q.setValueAtTime(q, t);
+        filter.frequency.setValueAtTime(Math.max(30, fStart), t);
+        if (fEnd && fEnd !== fStart) {
+          filter.frequency.exponentialRampToValueAtTime(Math.max(30, fEnd), t + dur);
+        }
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(Math.max(0.001, vol), t);
+        gain.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        src.start(t, Math.random() * Math.max(0, 0.7 - dur));
+        src.stop(t + dur + 0.01);
+      }
+
+      // 角色必殺技與勝利台詞語音合成 (利用現有角色名號與台詞素材發聲)
+      speak(text, voiceProfile = {}) {
+        if (this.muted || !text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = "zh-TW";
+          utter.pitch = voiceProfile.pitch ?? 1.0;
+          utter.rate = voiceProfile.rate ?? 1.1;
+          utter.volume = 0.85;
+          window.speechSynthesis.speak(utter);
+        } catch (_) { }
+      }
+
+      play(kind) {
+        if (this.muted) return;
+        // 節流保護：同一音效 35ms 內不重複疊加爆音
+        const nowMs = performance.now();
+        const minGap = (kind === "stone_bounce" || kind === "ui_move") ? 65 : 35;
+        if (nowMs - (this.lastPlayMs.get(kind) || 0) < minGap) return;
+        this.lastPlayMs.set(kind, nowMs);
+
+        // 若有掛載對應外部音檔，優先播放外部音檔
+        const ext = this.customAudio.get(kind);
+        if (ext) {
+          try { ext.currentTime = 0; ext.play().catch(() => { }); return; } catch (_) { }
+        }
+
+        if (!this.ctx) this.unlock();
+        if (!this.ctx || this.ctx.state !== "running") return;
+
+        switch (kind) {
+          // ---- 介面與系統流程音效 ----
+          case "ui_move":
+            this._tone("triangle", 660, 880, 0.035, 0.07);
+            break;
+          case "ui_confirm":
+            this._tone("triangle", 523.25, 523.25, 0.06, 0.11, 0);
+            this._tone("triangle", 783.99, 1046.5, 0.11, 0.13, 0.05);
+            break;
+          case "no_energy":
+            this._tone("sawtooth", 150, 125, 0.06, 0.10, 0);
+            this._tone("sawtooth", 125, 98, 0.08, 0.10, 0.07);
+            break;
+          case "round_start":
+            this._tone("sawtooth", 220, 220, 0.28, 0.13, 0);
+            this._tone("triangle", 329.6, 329.6, 0.28, 0.12, 0);
+            this._tone("sine", 440, 659.25, 0.34, 0.14, 0.08);
+            this._noise(0.22, "bandpass", 1200, 450, 0.08, 2.0, 0);
+            break;
+          case "victory":
+            // 總冠軍凱旋四音階號角和弦
+            this._tone("triangle", 523.25, 523.25, 0.13, 0.15, 0.00);
+            this._tone("triangle", 659.25, 659.25, 0.13, 0.15, 0.11);
+            this._tone("triangle", 783.99, 783.99, 0.14, 0.16, 0.22);
+            this._tone("sawtooth", 1046.5, 1046.5, 0.42, 0.16, 0.34);
+            this._tone("triangle", 523.25, 523.25, 0.42, 0.12, 0.34);
+            break;
+          case "firework":
+            this._tone("sine", 580, 140, 0.09, 0.09);
+            this._noise(0.18, "highpass", 1800, 4200, 0.11, 1.2, 0.02);
+            break;
+
+          // ---- 移動、跳躍、衝刺、倒地 ----
+          case "jump":
+            this._tone("sine", 195, 520, 0.11, 0.11);
+            this._noise(0.08, "bandpass", 650, 1600, 0.06, 1.8);
+            break;
+          case "land":
+            this._tone("triangle", 115, 42, 0.065, 0.10);
+            this._noise(0.05, "lowpass", 420, 120, 0.07, 1.0, 0, true);
+            break;
+          case "dash":
+            this._noise(0.11, "bandpass", 1600, 360, 0.14, 2.2);
+            this._tone("sine", 480, 165, 0.09, 0.10);
+            break;
+          case "knockdown":
+            this._tone("triangle", 125, 32, 0.19, 0.22);
+            this._noise(0.16, "lowpass", 520, 95, 0.18, 1.2, 0, true);
+            break;
+          case "stone_bounce":
+            this._tone("triangle", 170, 58, 0.07, 0.11);
+            this._noise(0.05, "lowpass", 600, 180, 0.07, 1.4, 0, true);
+            break;
+
+          // ---- 角色專屬「出招 / 揮擊」音效 (Cast / Swing) ----
+          case "cast_coins": // 吊車大王：撒幣清脆金屬聲
+            this._tone("sine", 1760, 2640, 0.06, 0.10, 0);
+            this._tone("sine", 2350, 3520, 0.07, 0.10, 0.03);
+            this._noise(0.06, "highpass", 2500, 5000, 0.06, 2.0);
+            break;
+          case "cast_crane": // 吊車大王：重機吊臂滑輪降落聲
+            this._tone("sawtooth", 440, 130, 0.18, 0.12);
+            this._tone("triangle", 220, 75, 0.18, 0.12);
+            this._noise(0.15, "bandpass", 900, 280, 0.09, 3.0);
+            break;
+          case "cast_whip": // 狗王：觸手破風抽鞭
+            this._noise(0.10, "bandpass", 520, 2600, 0.14, 2.8);
+            this._tone("triangle", 280, 760, 0.08, 0.11);
+            break;
+          case "cast_bite": // 狗王：狂犬低吼撲咬
+            this._tone("sawtooth", 195, 88, 0.13, 0.13);
+            this._noise(0.12, "bandpass", 680, 260, 0.12, 2.4, 0, true);
+            break;
+          case "cast_ink": // 地獄黑面潔：判官筆揮毫破空
+            this._noise(0.11, "bandpass", 820, 1950, 0.12, 2.2);
+            this._tone("sine", 540, 240, 0.10, 0.10);
+            break;
+          case "cast_pillar": // 地獄黑面潔：冥府法鐘共鳴
+            this._tone("sine", 587.3, 580, 0.22, 0.13);
+            this._tone("triangle", 880, 440, 0.20, 0.09);
+            this._tone("sine", 293.6, 146.8, 0.22, 0.11);
+            break;
+          case "cast_boomerang": // 生話戰士：保溫杯迴旋嗡鳴
+            this._tone("triangle", 390, 680, 0.11, 0.11, 0);
+            this._tone("sine", 585, 340, 0.10, 0.08, 0.04);
+            break;
+          case "cast_broom": // 生話戰士：大風車掃把旋風
+            this._noise(0.22, "bandpass", 380, 1250, 0.15, 2.0, 0, true);
+            this._tone("sine", 240, 420, 0.18, 0.09);
+            break;
+          case "cast_belly": // 請假王：Q彈肚皮彈跳音
+            this._tone("sine", 145, 360, 0.07, 0.14, 0);
+            this._tone("sine", 360, 175, 0.08, 0.12, 0.05);
+            break;
+          case "cast_quake": // 請假王：泰山壓頂蓄力低鳴
+            this._tone("sawtooth", 110, 42, 0.20, 0.15);
+            this._noise(0.18, "lowpass", 360, 90, 0.12, 1.5, 0, true);
+            break;
+          case "cast_roar": // 風濕爺：鎮風石獅咆哮
+            this._tone("sawtooth", 240, 105, 0.15, 0.15);
+            this._tone("square", 120, 62, 0.15, 0.10);
+            this._noise(0.15, "bandpass", 950, 320, 0.14, 1.8, 0, true);
+            break;
+          case "cast_stone": // 風濕爺：拋出石獅繡球
+            this._tone("triangle", 260, 95, 0.12, 0.12);
+            this._noise(0.10, "lowpass", 750, 220, 0.10, 1.5, 0, true);
+            break;
+
+          // ---- 角色專屬「命中打擊」音效 (Hit Impact) ----
+          case "hit_coins": // 金幣鈔票砸中：清脆收銀機叮噹 + 打擊
+            this._tone("triangle", 380, 130, 0.07, 0.15);
+            this._tone("sine", 2093, 2637, 0.07, 0.12, 0.01);
+            this._tone("sine", 3136, 3951, 0.09, 0.11, 0.04);
+            break;
+          case "hit_crane": // 吊車巨鉤重擊：鋼鐵巨響 + 重低音震地
+            this._tone("sawtooth", 135, 32, 0.24, 0.26);
+            this._tone("square", 460, 185, 0.14, 0.15);
+            this._tone("sine", 740, 290, 0.12, 0.12);
+            this._noise(0.22, "lowpass", 1400, 160, 0.22, 1.8, 0, true);
+            break;
+          case "hit_whip": // 觸手鞭擊命中：清脆皮鞭啪響
+            this._noise(0.08, "highpass", 1200, 3200, 0.20, 2.2);
+            this._tone("sawtooth", 520, 115, 0.08, 0.16);
+            break;
+          case "hit_bite": // 狂暴連咬命中：雙重利齒撕咬聲
+            this._tone("sawtooth", 290, 75, 0.07, 0.18, 0);
+            this._noise(0.06, "bandpass", 1400, 480, 0.18, 2.4, 0);
+            this._tone("sawtooth", 240, 62, 0.07, 0.16, 0.035);
+            break;
+          case "hit_ink": // 判官筆墨擊中：濃墨爆開 + 官印重蓋
+            this._tone("triangle", 260, 68, 0.10, 0.18);
+            this._noise(0.09, "bandpass", 1100, 320, 0.15, 2.0);
+            break;
+          case "hit_pillar": // 生死簿天罰火柱命中：冥火轟雷爆裂
+            this._tone("sawtooth", 160, 36, 0.25, 0.25);
+            this._tone("triangle", 320, 55, 0.20, 0.18);
+            this._noise(0.24, "bandpass", 950, 180, 0.22, 1.5, 0, true);
+            break;
+          case "hit_clang": // 不鏽鋼保溫杯敲頭：清脆空心鐵罐鏘聲！
+            this._tone("square", 620, 540, 0.11, 0.14);
+            this._tone("sine", 960, 820, 0.13, 0.15);
+            this._tone("triangle", 280, 95, 0.08, 0.16);
+            this._noise(0.06, "highpass", 1800, 900, 0.12, 3.0);
+            break;
+          case "hit_broom": // 紅毛掃把風車命中：刷毛猛烈抽打聲
+            this._noise(0.11, "bandpass", 950, 2200, 0.19, 1.8);
+            this._tone("triangle", 310, 88, 0.09, 0.17);
+            break;
+          case "hit_belly": // 大肚皮頂撞命中：渾厚大鼓彈飛聲
+            this._tone("sine", 210, 58, 0.14, 0.24);
+            this._tone("triangle", 320, 110, 0.10, 0.16);
+            break;
+          case "hit_quake": // 泰山崩裂震地命中：超重低音地裂崩塌
+            this._tone("sawtooth", 98, 24, 0.28, 0.28);
+            this._tone("triangle", 145, 32, 0.26, 0.24);
+            this._noise(0.28, "lowpass", 680, 85, 0.25, 1.2, 0, true);
+            break;
+          case "hit_roar": // 獅吼功震波命中：狂風音爆衝擊
+            this._tone("sawtooth", 280, 68, 0.14, 0.20);
+            this._noise(0.14, "bandpass", 1200, 280, 0.20, 1.6, 0, true);
+            break;
+          case "hit_stone": // 石獅繡球砸中：厚重花崗岩猛砸聲
+            this._tone("triangle", 175, 42, 0.18, 0.25);
+            this._tone("sawtooth", 120, 38, 0.16, 0.20);
+            this._noise(0.15, "lowpass", 820, 140, 0.20, 1.5, 0, true);
+            break;
+
+          // ---- 角色專屬「超必殺技特寫 (ULT Cut-In)」華麗音效 ----
+          case "ult_crane":
+            this._tone("sawtooth", 220, 880, 0.26, 0.18, 0);
+            this._tone("triangle", 440, 1320, 0.28, 0.15, 0.04);
+            this._tone("sine", 2093, 3136, 0.18, 0.14, 0.12);
+            this._noise(0.25, "bandpass", 1200, 3200, 0.14, 2.0);
+            break;
+          case "ult_monster":
+            this._tone("sawtooth", 140, 620, 0.26, 0.20, 0);
+            this._tone("square", 95, 45, 0.30, 0.18, 0.05);
+            this._noise(0.28, "bandpass", 850, 240, 0.18, 2.2, 0, true);
+            break;
+          case "ult_judge":
+            this._tone("sine", 523.25, 515, 0.36, 0.20, 0);
+            this._tone("sawtooth", 130.8, 38, 0.34, 0.20, 0);
+            this._noise(0.30, "lowpass", 900, 160, 0.18, 1.6, 0, true);
+            break;
+          case "ult_broom":
+            this._noise(0.34, "bandpass", 350, 2200, 0.22, 2.4, 0, true);
+            this._tone("triangle", 260, 1040, 0.28, 0.17, 0);
+            break;
+          case "ult_slaking":
+            this._tone("sawtooth", 110, 28, 0.35, 0.26, 0);
+            this._tone("square", 330, 660, 0.22, 0.16, 0);
+            this._noise(0.32, "lowpass", 650, 90, 0.24, 1.2, 0, true);
+            break;
+          case "ult_lion":
+            this._tone("sawtooth", 196, 784, 0.28, 0.20, 0);
+            this._tone("triangle", 146.8, 55, 0.32, 0.20, 0.04);
+            this._noise(0.30, "bandpass", 1100, 320, 0.20, 1.6, 0, true);
+            break;
+
+          // ---- 通用打擊、道具與 K.O. 音效 ----
+          case "light":
+            this._tone("triangle", 360, 105, 0.075, 0.16);
+            this._noise(0.05, "bandpass", 1400, 500, 0.11, 1.8);
+            break;
+          case "heavy":
+            this._tone("sawtooth", 210, 48, 0.17, 0.23);
+            this._noise(0.14, "lowpass", 950, 180, 0.18, 1.4, 0, true);
+            break;
+          case "ult":
+            this._tone("square", 220, 880, 0.26, 0.18, 0);
+            this._tone("sawtooth", 330, 1320, 0.26, 0.14, 0.03);
+            this._noise(0.24, "bandpass", 800, 2800, 0.14, 2.0);
+            break;
+          case "pickup_heal":
+            this._tone("sine", 523.25, 523.25, 0.07, 0.15, 0);
+            this._tone("sine", 659.25, 659.25, 0.07, 0.15, 0.06);
+            this._tone("triangle", 783.99, 1046.5, 0.14, 0.16, 0.12);
+            break;
+          case "pickup_energy":
+          case "pickup":
+            this._tone("triangle", 440, 660, 0.07, 0.14, 0);
+            this._tone("triangle", 660, 990, 0.08, 0.15, 0.05);
+            this._tone("sine", 990, 1480, 0.12, 0.15, 0.10);
+            break;
+          case "bomb":
+            this._tone("sawtooth", 115, 24, 0.34, 0.28);
+            this._noise(0.34, "lowpass", 1100, 90, 0.28, 1.1, 0, true);
+            break;
+          case "ko":
+            this._tone("sawtooth", 150, 28, 0.38, 0.28, 0);
+            this._tone("triangle", 300, 52, 0.36, 0.22, 0.02);
+            this._noise(0.35, "lowpass", 900, 110, 0.24, 1.4, 0, true);
+            break;
+          default:
+            this._tone("triangle", 320, 120, 0.07, 0.12);
+            break;
         }
       }
     }
@@ -3788,6 +4550,7 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
           this.z = Math.max(0, this.z + this.vz * dt);
           if (this.z === 0) {
             this.vz = 0;
+            SFX.play("land");
             game.spawnDust(this.x, this.groundY, 6);
           }
           return;
@@ -3809,11 +4572,12 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
               const healed = Math.min(f.maxHp - f.hp, 28);
               f.hp = Math.min(f.maxHp, f.hp + 28);
               game.floatingTexts.push(new FloatingText(fx, f.getDrawTopY() - 12, healed > 0 ? `+${healed} HP 🍗` : "滿血 🍗", "#52b788", 1.15));
+              SFX.play("pickup_heal");
             } else {
               f.addEnergy(40);
               game.floatingTexts.push(new FloatingText(fx, f.getDrawTopY() - 12, "+40% 氣 ⚡", "#ffd166", 1.15));
+              SFX.play("pickup_energy");
             }
-            SFX.play("pickup");
             game.spawnHitSparks(this.x, this.groundY - 16, false);
             this.active = false;
             break;
@@ -3884,6 +4648,19 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         this._predHist = [];
         this._predDir = null;
         this._facingHoldUntil = 0;
+        // 本機動作預測 (連線模式)
+        this._predAttack = null;
+        this._predDash = null;
+        this._predJump = null;
+        this._dashCdUntil = 0;
+        this._dashEchoUntil = 0;
+        this._jumpEchoUntil = 0;
+        this._skipJumpSfxUntil = 0;
+        // 命中演出
+        this.netHitstop = 0;
+        this.zoomPunch = 0; this.zoomPunchMax = 0.12; this.zoomStrength = 0;
+        this.zoomFocusX = 0; this.zoomFocusY = 0;
+        this.impactFlash = 0;
         this._reconnectAttempt = 0;
         this._reconnectTimer = null;
         this._disconnectedAt = 0;
@@ -3893,8 +4670,6 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         this.brawlCount = 2;   // 單機大亂鬥人數 (2~4)
         this.comDifficulty = "normal";
         this.p1Index = 0; this.p2Index = 1; this.p3Index = 2; this.p4Index = 3;
-        this.p1Locked = false; this.p2Locked = false;
-        this.selectStep = 1;
         this.mapIndex = 0; this.currentMap = MAP_TEMPLATES[0];
         this.worldTime = 0;
 
@@ -3929,8 +4704,6 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
 
         // 三戰兩勝與 60 秒計時狀態
         this.roundNumber = 1;
-        this.p1Wins = 0;
-        this.p2Wins = 0;
         this.roundTimer = CONFIG.roundDuration;
         this.roundIntroTimer = 0;
         this.roundEndReason = ""; // "K.O." 或 "TIME OVER!"
@@ -3950,7 +4723,6 @@ function drawCroppedPhoto(ctx, src, crop, dx, dy, dw, dh, radius = 12, isEllipse
         this.onlineRoom = null;      // 目前所在房間資料
         this.onlineMySlot = 1;       // 我在房間內的幾號位 (1~4)
         this.onlineIsHost = false;   // 我是否為 1P 房主
-        this.netSyncTimer = 0;
         this.publicRooms = [];
 
 this.selectOverlay = document.getElementById("selectOverlay");
@@ -4064,7 +4836,8 @@ this.selectOverlay = document.getElementById("selectOverlay");
         this.hitstopTimer = Math.max(this.hitstopTimer, 0.16);
         this.shakeTimer = 0.34;
         this.shakeIntensity = 15;
-        SFX.play("ult");
+        SFX.play(fighter.charDef.attacks.ult?.ultSfx || "ult");
+        SFX.speak(fighter.charDef.voice?.ultCry || fighter.charDef.ultTitle, fighter.charDef.voice);
         this.spawnHitSparks(fighter.x + fighter.width / 2, fighter.getDrawTopY() + 36, true);
       }
 
@@ -4354,6 +5127,7 @@ setWsBadge(kind, text) {
           this.updateSelectUI();
         } else if (page === "lobby") {
           if (!this.wsConnected) this.connectWebSocket();
+          else this.sendWs({ type: "get_rooms" });
           const hasServerUrl = !!(this.wsUrlInput && this.wsUrlInput.value.trim());
           if (hasServerUrl) {
             this.setGuide("建立新房間，或點右邊的公開房間直接加入。");
@@ -4390,6 +5164,7 @@ setWsBadge(kind, text) {
       }
 
       goNextFromChar() {
+        SFX.play("ui_confirm");
         if (this.playMode === "online") this.showPage(this.onlineRoom ? "room" : "lobby");
         else this.showPage("room");
       }
@@ -4686,6 +5461,7 @@ setWsBadge(kind, text) {
 
         this.modeCardEls.forEach((card) => {
           card.addEventListener("click", () => {
+            SFX.play("ui_confirm");
             this.setPlayMode(card.dataset.mode);
             this.showPage("char");
           });
@@ -4817,6 +5593,7 @@ setWsBadge(kind, text) {
 
       selectChar(idx) {
         if (this.scene !== "select") return;
+        if (this.p1Index !== idx) SFX.play("ui_move");
         this.p1Index = idx;
         if (this.playMode === "online" && this.onlineRoom) {
           this.sendWs({ type: "update_room_player", charIndex: idx });
@@ -4953,7 +5730,6 @@ setWsBadge(kind, text) {
           const f = this.allFighters[slot - 1];
           if (!f) continue;
           f.isCOM = !!pInfo.isCOM;
-          f.isRemote = !pInfo.isCOM && slot !== this.onlineMySlot;
           f.comDiffLabel = COM_DIFFICULTIES[pInfo.comDiff || "normal"]?.label || "普通";
           f.customNickname = pInfo.name || `${slot}P`;
           if (slot === 1) {
@@ -4979,8 +5755,6 @@ setWsBadge(kind, text) {
 
         this.configureSpawnPositions(this.activeFighters);
         this.roundNumber = 1;
-        this.p1Wins = 0;
-        this.p2Wins = 0;
         this.matchWinner = null;
         this.championFighter = null;
         this.victoryTime = 0;
@@ -4997,14 +5771,12 @@ setWsBadge(kind, text) {
         for (let i = 1; i <= 4; i++) this.comAIs[i].setDifficulty(this.comDifficulty);
 
         this.p1.isCOM = false;
-        this.p1.isRemote = false;
         this.p1.customNickname = "";
         this.p1.controls = { up: "KeyW", left: "KeyA", down: "KeyS", right: "KeyD", jump: "KeyY", light: "KeyF", heavy: "KeyG", dash: "KeyH", ult: "KeyT" };
         this.p1.setCharacter(CHARACTER_ROSTER[this.p1Index]);
         this.p1.wins = 0;
 
         this.p2.isCOM = this.isComMode;
-        this.p2.isRemote = false;
         this.p2.customNickname = "";
         this.p2.comDiffLabel = diffLabel;
         this.p2.controls = { up: "ArrowUp", left: "ArrowLeft", down: "ArrowDown", right: "ArrowRight", jump: ["ShiftRight", "Enter"], light: "Comma", heavy: "Period", dash: "Slash", ult: ["Semicolon", "KeyM"] };
@@ -5015,7 +5787,6 @@ setWsBadge(kind, text) {
 
         if (this.isComMode && this.brawlCount >= 3) {
           this.p3.isCOM = true;
-          this.p3.isRemote = false;
           this.p3.customNickname = "";
           this.p3.comDiffLabel = diffLabel;
           this.p3.controls = CANONICAL_NET_CONTROLS;
@@ -5026,7 +5797,6 @@ setWsBadge(kind, text) {
 
         if (this.isComMode && this.brawlCount >= 4) {
           this.p4.isCOM = true;
-          this.p4.isRemote = false;
           this.p4.customNickname = "";
           this.p4.comDiffLabel = diffLabel;
           this.p4.controls = CANONICAL_NET_CONTROLS;
@@ -5039,8 +5809,6 @@ setWsBadge(kind, text) {
 
         // 重置三戰兩勝比數
         this.roundNumber = 1;
-        this.p1Wins = 0;
-        this.p2Wins = 0;
         this.matchWinner = null;
         this.championFighter = null;
         this.victoryTime = 0;
@@ -5110,6 +5878,10 @@ returnToSelect() {
         this.koWinner = null;
         this.resetTimer = 0;
         this.ultBanner = null;
+        this._predAttack = null; this._predDash = null; this._predJump = null;
+        this._dashCdUntil = 0; this._dashEchoUntil = 0; this._jumpEchoUntil = 0;
+        this.netHitstop = 0; this.zoomPunch = 0; this.impactFlash = 0;
+        SFX.play("round_start");
       }
 
       spawnHitSparks(x, y, isHeavy) {
@@ -5143,7 +5915,9 @@ returnToSelect() {
           defender._lastGangWarn = now;
           this.floatingTexts.push(new FloatingText(defender.x + defender.width / 2, defender.getDrawTopY() - 22, "圍毆減傷! 氣+50%", "#00f5d4", 1.05));
         }
-        SFX.play(defender.hp <= 0 ? "ko" : (attackData.name === "ult" || attackData.name === "ult_proj" ? "ult" : (attackData.name === "heavy" ? "heavy" : "light")));
+        const isUlt = attackData.name === "ult" || attackData.name === "ult_proj";
+        const isHeavyOrUlt = attackData.name === "heavy" || isUlt;
+        SFX.play(defender.hp <= 0 ? "ko" : (attackData.hitSfx || (isUlt ? "ult" : (isHeavyOrUlt ? "heavy" : "light"))));
 
         // 攻擊方獲得集氣 (必殺技與其衍生飛行道具期間不重複回氣)
         if (attackData.name !== "ult" && attackData.name !== "ult_proj") {
@@ -5152,12 +5926,7 @@ returnToSelect() {
         }
 
         this.hitstopTimer = Math.max(this.hitstopTimer, attackData.hitstop || 0.04);
-        const isUlt = attackData.name === "ult" || attackData.name === "ult_proj";
-        const isHeavyOrUlt = attackData.name === "heavy" || isUlt;
-        if (isHeavyOrUlt) {
-          this.shakeTimer = isUlt ? 0.36 : CONFIG.heavyShakeDuration;
-          this.shakeIntensity = isUlt ? 16 : CONFIG.heavyShakeIntensity;
-        }
+        this.playHitImpact({ hitX, hitY, isHeavyOrUlt, isUlt, isKo: defender.hp <= 0, attId: attacker ? attacker.id : 0, defId: defender.id });
         this.spawnHitSparks(hitX, hitY, isHeavyOrUlt);
         this.starbursts.push(new HitStarburst(hitX, hitY, isHeavyOrUlt));
         const tag = isUlt ? " 必殺!!" : (isHeavyOrUlt ? "!" : "");
@@ -5219,6 +5988,10 @@ returnToSelect() {
         this.victoryTime = 0;
         this.fireworkTimer = 0.55; // 先讓 K.O. 擊飛畫面展示 0.55 秒，再切入總冠軍原圖特寫與煙火
         this.victoryConfetti = [];
+        SFX.play("victory");
+        if (winnerPlayer?.charDef) {
+          SFX.speak(winnerPlayer.charDef.voice?.winCry || winnerPlayer.charDef.winQuote, winnerPlayer.charDef.voice);
+        }
         const colors = ["#ffd166", "#ffbe0b", "#ff4d6d", "#00f5d4", "#ff758f", "#9b5de5", "#ffffff"];
         for (let i = 0; i < 80; i++) {
           this.victoryConfetti.push({
@@ -5237,6 +6010,7 @@ returnToSelect() {
       }
 
       spawnVictoryFirework() {
+        SFX.play("firework");
         const fx = 110 + Math.random() * (CONFIG.canvasWidth - 220);
         const fy = 75 + Math.random() * 210;
         const palette = ["#ffd166", "#ff4d6d", "#00f5d4", "#ffbe0b", "#c77dff", "#ff758f"];
@@ -5271,9 +6045,6 @@ returnToSelect() {
             : (winFighter.isCOM && this.activeFighters.length === 2 ? "COM" : `${winFighter.id}P`);
         }
 
-        this.p1Wins = this.p1.wins;
-        this.p2Wins = this.p2.wins;
-
         const matchChamp = this.activeFighters.find((f) => f.wins >= CONFIG.winsToMatch);
         if (matchChamp) {
           this.matchWinner = matchChamp.name;
@@ -5291,8 +6062,77 @@ returnToSelect() {
 // 自己角色的走位預測：
       // 伺服器回報的位置永遠比我的按鍵慢一個來回延遲，所以把「最近這段延遲內我下的移動指令」
       // 疊加到伺服器位置上當作目標，按下方向鍵的瞬間角色就會動，放開也會立刻停。
+getLatencySec() {
+        return Math.min(0.4, (this.rttMs || 90) / 1000 + 0.04);
+      }
+
+      // 按鍵當下就給回饋 (起手動作、起跳、衝刺、音效)，不等伺服器來回。
+      // 傷害與命中仍由伺服器判定；若伺服器沒有接受這次動作，畫面會在約 0.2 秒內回到正確狀態。
+      predictOwnActions(f) {
+        if (!this.wsConnected || f.hp <= 0) return;
+        if (!(f.state === "idle" || f.state === "move" || f.state === "jump")) return;
+        const nowMs = performance.now();
+        const latencyMs = this.getLatencySec() * 1000;
+        const inp = this.input;
+
+        // 跳躍：拋物線完全可預測，直接在本機走完整段
+        if (inp.wasPressed(["KeyY", "Enter", "ShiftRight"]) && f.z <= 0.5 && !this._predJump) {
+          this._predJump = { t0: nowMs, confirmUntil: nowMs + latencyMs + 180, confirmed: false };
+          this._skipJumpSfxUntil = nowMs + latencyMs + 250;
+          f.state = "jump";
+          SFX.play("jump");
+        }
+
+        // 衝刺
+        if (inp.wasPressed(["KeyH", "Slash"]) && nowMs >= this._dashCdUntil) {
+          let dx = 0, dy = 0;
+          if (inp.isHeld(["KeyA", "ArrowLeft"])) dx -= 1;
+          if (inp.isHeld(["KeyD", "ArrowRight"])) dx += 1;
+          if (inp.isHeld(["KeyW", "ArrowUp"])) dy -= 1;
+          if (inp.isHeld(["KeyS", "ArrowDown"])) dy += 1;
+          if (dx === 0 && dy === 0) dx = f.facing;
+          const len = Math.hypot(dx, dy);
+          const durMs = CONFIG.dashDuration * 1000;
+          this._predDash = { until: nowMs + durMs, dx: dx / len, dy: dy / len };
+          this._dashCdUntil = nowMs + CONFIG.dashCooldown * 1000;
+          this._dashEchoUntil = nowMs + durMs + latencyMs + 100;
+          this._predJump = null; // 空中衝刺會暫停下墜，高度改跟伺服器
+          f.state = "dash";
+          f.dashCooldownTimer = CONFIG.dashCooldown;
+          SFX.play("dash");
+          return;
+        }
+
+        // 出招：先擺出起手式並播放出招音，揮擊與命中等伺服器確認後同步演出
+        if (!this._predAttack) {
+          const attacks = f.charDef.attacks;
+          let atk = null;
+          if (inp.wasPressed(["KeyT", "Semicolon", "KeyM"]) && f.energy >= CONFIG.maxEnergy) atk = attacks.ult;
+          else if (inp.wasPressed(["KeyF", "Comma"])) atk = attacks.light;
+          else if (inp.wasPressed(["KeyG", "Period"])) atk = attacks.heavy;
+          if (atk) {
+            this._predAttack = { until: nowMs + latencyMs + 170 };
+            f.state = "attack_startup";
+            f.currentAttack = atk;
+            f.stateTimer = atk.startup;
+            f.lockedTargetPos = null;
+            if (atk.name !== "ult") SFX.play(atk.castSfx || (atk.name === "heavy" ? "heavy" : "light"));
+          }
+        }
+      }
+
       predictOwnFighter(f, dt) {
-        const now = performance.now() / 1000;
+        const nowMs = performance.now();
+        const now = nowMs / 1000;
+        const latency = this.getLatencySec();
+        let dashing = false;
+        if (this._predDash) {
+          dashing = nowMs < this._predDash.until;
+          if (!dashing) {
+            this._predDash = null;
+            if (f.state === "dash") f.state = "idle";
+          }
+        }
         const free = (f.state === "idle" || f.state === "move" || f.state === "jump") && f.hp > 0;
         let dirX = 0, dirY = 0;
         if (free) {
@@ -5302,11 +6142,16 @@ returnToSelect() {
           if (this.input.isHeld(["KeyS", "ArrowDown"])) dirY += 1;
         }
         const mult = f.charDef.speedMult || 1;
-        const diag = (dirX !== 0 && dirY !== 0) ? 1 / Math.SQRT2 : 1;
-        const vx = dirX * diag * CONFIG.moveSpeedX * mult;
-        const vy = dirY * diag * CONFIG.moveSpeedY * mult;
+        let vx, vy;
+        if (dashing) {
+          vx = this._predDash.dx * CONFIG.dashSpeed * mult;
+          vy = this._predDash.dy * CONFIG.dashSpeed * 0.72 * mult;
+        } else {
+          const diag = (dirX !== 0 && dirY !== 0) ? 1 / Math.SQRT2 : 1;
+          vx = dirX * diag * CONFIG.moveSpeedX * mult;
+          vy = dirY * diag * CONFIG.moveSpeedY * mult;
+        }
 
-        const latency = Math.min(0.4, (this.rttMs || 90) / 1000 + 0.04);
         const hist = this._predHist;
         hist.push({ t: now, dx: vx * dt, dy: vy * dt });
         while (hist.length && now - hist[0].t > latency) hist.shift();
@@ -5319,12 +6164,14 @@ returnToSelect() {
         const targetX = clamp(f.netTarget.x + aheadX, minX, maxX);
         const targetY = clamp(f.netTarget.y + aheadY, minY, maxY);
 
-        if (free) {
+        if (free || dashing) {
           f.x = clamp(f.x + vx * dt, minX, maxX);
           f.y = clamp(f.y + vy * dt, minY, maxY);
+        }
+        if (free) {
           if (dirX !== 0 && dirX !== f.facing) {
             f.facing = dirX;
-            this._facingHoldUntil = performance.now() + latency * 1000 + 60;
+            this._facingHoldUntil = nowMs + latency * 1000 + 60;
           }
           if (f.state !== "jump") f.state = (dirX !== 0 || dirY !== 0) ? "move" : "idle";
           this._predDir = { x: dirX, y: dirY };
@@ -5332,13 +6179,58 @@ returnToSelect() {
           this._predDir = null;
         }
         // 把本機位置拉回權威目標：能自由移動時輕拉 (不搶手感)，被打 / 出招時緊跟伺服器
-        const pull = Math.min(1, dt * (free ? 10 : 18));
+        const pull = Math.min(1, dt * ((free || dashing) ? 10 : 18));
         f.x += (targetX - f.x) * pull;
         f.y += (targetY - f.y) * pull;
+
+        // 高度：本機預測的跳躍直接照拋物線走；落地後短暫忽略伺服器還在播的「上一跳」
+        const pj = this._predJump;
+        if (pj) {
+          const t = (nowMs - pj.t0) / 1000;
+          const z = CONFIG.jumpVelocity * t - 0.5 * CONFIG.gravity * t * t;
+          if (z > 0 || t < 0.05) {
+            f.z = Math.max(0, z);
+            return;
+          }
+          this._predJump = null;
+          this._jumpEchoUntil = nowMs + latency * 1000 + 80;
+          f.z = 0;
+          if (f.state === "jump") f.state = "idle";
+          SFX.play("land");
+          return;
+        }
+        if (nowMs < this._jumpEchoUntil) { f.z = 0; return; }
         f.z += (f.netTarget.z - f.z) * Math.min(1, dt * 20);
       }
 
-      sendInputToServer() {
+      // 命中演出 (單機與連線共用)：定格、震動、鏡頭衝擊、閃白、手機震動
+      playHitImpact({ hitX, hitY, isHeavyOrUlt, isUlt, isKo, attId, defId }) {
+        if (isHeavyOrUlt) {
+          this.shakeTimer = isUlt ? 0.36 : CONFIG.heavyShakeDuration;
+          this.shakeIntensity = isUlt ? 16 : CONFIG.heavyShakeIntensity;
+          this.zoomPunch = isUlt ? 0.18 : 0.12;
+          this.zoomPunchMax = this.zoomPunch;
+          this.zoomStrength = isUlt ? 0.055 : 0.03;
+          this.zoomFocusX = hitX;
+          this.zoomFocusY = hitY;
+        } else if (this.shakeTimer < 0.08) {
+          // 輕攻擊也給一點點震動，讓每一下都有「打到」的感覺
+          this.shakeTimer = 0.08;
+          this.shakeIntensity = 7;
+        }
+        if (isUlt || isKo) this.impactFlash = isKo ? 0.16 : 0.1;
+
+        // 手機震動：自己被打明顯震、自己打中重擊輕震 (iOS 不支援，會自動略過)
+        const myId = this.playMode === "online" ? this.onlineMySlot : 1;
+        try {
+          if (IS_TOUCH_DEVICE && navigator.vibrate && !SFX.muted) {
+            if (defId === myId) navigator.vibrate(isHeavyOrUlt ? 45 : 22);
+            else if (attId === myId && isHeavyOrUlt) navigator.vibrate(16);
+          }
+        } catch (_) { }
+      }
+
+            sendInputToServer() {
         if (this.playMode !== "online" || !this.wsConnected || !this.ws) return;
         if (this.ws.bufferedAmount > 8192) return; // 避免網路壅塞時按鍵封包堆積
         const held = [];
@@ -5371,6 +6263,7 @@ returnToSelect() {
       }
 
       applyOnlineState(s) {
+        if (Number.isInteger(s.rn) && s.rn !== this.roundNumber) SFX.play("round_start");
         this.roundNumber = s.rn ?? this.roundNumber;
         this.roundTimer = s.rt ?? this.roundTimer;
         this.roundIntroTimer = s.ri ?? 0;
@@ -5394,6 +6287,8 @@ returnToSelect() {
           for (const fd of s.fs) {
             const f = this.allFighters[fd.id - 1];
             if (!f) continue;
+            const prevState = f._lastServerState || f.state;
+            f._lastServerState = fd.st;
             if (fd.hp < f.hp) f.hitFlashTimer = 0.12;
             // 設定網路目標座標，由渲染迴圈做線性插值 (Lerp) 平滑過渡
             f.netTarget = { x: fd.x, y: fd.y, z: fd.z };
@@ -5404,25 +6299,62 @@ returnToSelect() {
               f.hasNetPos = true;
             }
             const isMe = fd.id === this.onlineMySlot;
-            const serverFree = fd.st === "idle" || fd.st === "move";
-            if (!(isMe && serverFree && performance.now() < this._facingHoldUntil)) f.facing = fd.fc;
+            const nowMs = performance.now();
+            let serverFree = fd.st === "idle" || fd.st === "move";
+            let adopt = true;          // 是否採用伺服器回報的動作狀態
+            let castPredicted = false; // 這次出招的音效是否已在按鍵當下播過
+            if (isMe) {
+              const st = fd.st;
+              const soft = serverFree || st === "jump" || st === "dash"; // 可能只是伺服器還沒收到我的按鍵
+              if (!soft && !st.startsWith("attack")) {
+                // 被打 / 倒地 / KO：伺服器說了算，取消所有本機預測
+                this._predAttack = null; this._predDash = null; this._predJump = null;
+                this._jumpEchoUntil = 0; this._dashEchoUntil = 0;
+              } else {
+                if (this._predAttack) {
+                  if (soft && nowMs < this._predAttack.until) adopt = false;
+                  else { castPredicted = st === "attack_startup"; this._predAttack = null; }
+                }
+                if (adopt && this._predDash && nowMs < this._predDash.until && soft) adopt = false;
+                if (this._predJump) {
+                  if (st === "jump" || fd.z > 0) this._predJump.confirmed = true;
+                  else if (!this._predJump.confirmed && nowMs > this._predJump.confirmUntil) this._predJump = null;
+                }
+                // 本機已經跳完 / 衝完，伺服器還在回報的那一段視為「可自由行動」
+                if (st === "jump" && (this._predJump || nowMs < this._jumpEchoUntil)) serverFree = true;
+                if (st === "dash" && nowMs < this._dashEchoUntil) serverFree = true;
+              }
+            }
+            if (!(isMe && (!adopt || (serverFree && nowMs < this._facingHoldUntil)))) f.facing = fd.fc;
             f.hp = fd.hp;
             f.trailHp = fd.thp;
             f.energy = fd.en;
             f.wins = fd.w;
-            if (isMe && serverFree && this._predDir) {
-              f.state = (this._predDir.x !== 0 || this._predDir.y !== 0) ? "move" : "idle";
+            if (!adopt) {
+              // 保留本機預測中的起手式 / 衝刺，等伺服器跟上
+            } else if (isMe && serverFree && this._predDir) {
+              f.state = this._predJump ? "jump" : ((this._predDir.x !== 0 || this._predDir.y !== 0) ? "move" : "idle");
+              f.stateTimer = fd.stt;
+              f.currentAttack = null;
+              f.lockedTargetPos = null;
             } else {
               f.state = fd.st;
+              f.stateTimer = fd.stt;
+              f.currentAttack = fd.ak ? f.charDef.attacks[fd.ak] : null;
+              f.lockedTargetPos = fd.lt ? { x: fd.lt[0], y: fd.lt[1] } : null;
             }
-            f.stateTimer = fd.stt;
             if (Math.abs((f.animTime || 0) - fd.at) > 0.3) f.animTime = fd.at;
             f.invulnTimer = fd.inv;
-            f.currentAttack = fd.ak ? f.charDef.attacks[fd.ak] : null;
-            f.lockedTargetPos = fd.lt ? { x: fd.lt[0], y: fd.lt[1] } : null;
+            if (fd.st !== prevState) {
+              const serverAtk = fd.ak ? f.charDef.attacks[fd.ak] : null;
+              if (fd.st === "jump") { if (!(isMe && nowMs < this._skipJumpSfxUntil)) SFX.play("jump"); }
+              else if (fd.st === "dash") { if (!(isMe && nowMs < this._dashEchoUntil)) SFX.play("dash"); }
+              else if (fd.st === "knockdown") SFX.play("knockdown");
+              else if (fd.st === "attack_startup" && !castPredicted && serverAtk && serverAtk.name !== "ult") {
+                SFX.play(serverAtk.castSfx || (serverAtk.name === "heavy" ? "heavy" : "light"));
+              }
+            }
           }
-          this.p1Wins = this.p1.wins;
-          this.p2Wins = this.p2.wins;
         }
 
         if (Array.isArray(s.ps)) {
@@ -5468,15 +6400,17 @@ returnToSelect() {
           this.spawnHitSparks(ev.hitX, ev.hitY, ev.isHeavyOrUlt);
           this.starbursts.push(new HitStarburst(ev.hitX, ev.hitY, ev.isHeavyOrUlt));
           this.floatingTexts.push(new FloatingText(ev.hitX, ev.hitY - 18, ev.dmgText, ev.color, ev.scale));
-          if (ev.isHeavyOrUlt) {
-            this.shakeTimer = ev.isUlt ? 0.36 : CONFIG.heavyShakeDuration;
-            this.shakeIntensity = ev.isUlt ? 16 : CONFIG.heavyShakeIntensity;
-          }
+          this.playHitImpact({ hitX: ev.hitX, hitY: ev.hitY, isHeavyOrUlt: !!ev.isHeavyOrUlt, isUlt: !!ev.isUlt, isKo: !!ev.ko, attId: ev.att, defId: ev.def });
+          // 命中定格：伺服器在這段時間暫停模擬，前端同步凍結動作，才有「頓一下」的打擊感
+          this.netHitstop = Math.max(this.netHitstop, ev.isUlt ? 0.13 : (ev.isHeavyOrUlt ? 0.095 : 0.045));
+          const victim = this.allFighters[(ev.def || 0) - 1];
+          if (victim) victim.hitFlashTimer = 0.12;
         } else if (ev.kind === "text") {
           this.floatingTexts.push(new FloatingText(ev.x, ev.y, ev.text, ev.color, ev.scale || 1.1));
         } else if (ev.kind === "ult") {
           const caster = this.allFighters[(ev.slot || 1) - 1];
-          SFX.play("ult");
+          SFX.play(caster?.charDef?.attacks?.ult?.ultSfx || "ult");
+          SFX.speak(caster?.charDef?.voice?.ultCry || caster?.charDef?.ultTitle || ev.ultTitle, caster?.charDef?.voice);
           this.ultBanner = {
             fighterName: caster ? caster.name : ev.fighterName,
             ultTitle: caster?.charDef?.ultTitle || ev.ultTitle,
@@ -5524,6 +6458,8 @@ returnToSelect() {
           if (this.ultBanner.timer <= 0) this.ultBanner = null;
         }
         if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
+        if (this.zoomPunch > 0) this.zoomPunch = Math.max(0, this.zoomPunch - dt);
+        if (this.impactFlash > 0) this.impactFlash = Math.max(0, this.impactFlash - dt);
 
 // 連線模式：伺服器權威。自己的走位在本機先行預測 (不必等封包來回)，其他人用插值平滑顯示
         if (this.playMode === "online") {
@@ -5534,11 +6470,15 @@ returnToSelect() {
             this.sendWs({ type: "ping", t: performance.now() });
           }
           const me = this.allFighters[this.onlineMySlot - 1];
+          if (me && me.netTarget && this.activeFighters.includes(me)) this.predictOwnActions(me);
+          const frozen = this.netHitstop > 0;
+          if (frozen) this.netHitstop = Math.max(0, this.netHitstop - dt);
           const fighterLerp = Math.min(1, dt * 20);
           for (const f of this.activeFighters) {
-            f.animTime += dt; // 本地持續推進動作幀，避免網路微延遲時動作卡住
+            if (!frozen) f.animTime += dt; // 本地持續推進動作幀 (命中定格時暫停)
             if (f.trailHp > f.hp) f.trailHp = Math.max(f.hp, f.trailHp - 45 * dt);
             if (f.hitFlashTimer > 0) f.hitFlashTimer = Math.max(0, f.hitFlashTimer - dt);
+            if (f === me && f.dashCooldownTimer > 0) f.dashCooldownTimer = Math.max(0, f.dashCooldownTimer - dt);
             if (!f.netTarget) continue;
             if (f === me) { this.predictOwnFighter(f, dt); continue; }
             f.x += (f.netTarget.x - f.x) * fighterLerp;
@@ -6175,7 +7115,7 @@ returnToSelect() {
 
         const stars = `${wins >= 1 ? "★" : "☆"}${wins >= 2 ? "★" : "☆"}`;
         const ultHint = isEnergyFull
-          ? (player.id === 1 || (this.playMode === "online" && player.id === this.onlineMySlot) ? " 🔥MAX! 按[J]" : " 🔥MAX!")
+          ? (player.id === 1 || (this.playMode === "online" && player.id === this.onlineMySlot) ? " 🔥MAX! 按[T]" : " 🔥MAX!")
           : ` 氣${Math.floor(player.energy)}%`;
         const infoText = alignRight
           ? `${ultHint} ｜ ${stars} ${player.name} (${player.hp})`
@@ -6227,6 +7167,13 @@ returnToSelect() {
           const mag = this.shakeIntensity * factor;
           ctx.translate((Math.random() * 2 - 1) * mag, (Math.random() * 2 - 1) * mag);
         }
+        if (this.zoomPunch > 0 && this.scene === "fight") {
+          // 重擊 / 必殺命中瞬間，鏡頭朝命中點推近一下再彈回
+          const k = 1 + this.zoomStrength * (this.zoomPunch / this.zoomPunchMax);
+          ctx.translate(this.zoomFocusX, this.zoomFocusY);
+          ctx.scale(k, k);
+          ctx.translate(-this.zoomFocusX, -this.zoomFocusY);
+        }
         this.currentMap.draw(ctx, this.worldTime);
         if (this.scene === "fight") {
           for (const img of this.afterimages) img.draw(ctx);
@@ -6240,6 +7187,10 @@ returnToSelect() {
           for (const ft of this.floatingTexts) ft.draw(ctx);
         }
         ctx.restore();
+        if (this.impactFlash > 0 && this.scene === "fight") {
+          ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.4, this.impactFlash * 2.6)})`;
+          ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
+        }
         if (this.scene === "fight") {
           this.drawHUD(ctx);
           if (this.playMode === "online") {
@@ -6287,7 +7238,8 @@ loop(now) {
 
     window.addEventListener("DOMContentLoaded", () => {
       const canvas = document.getElementById("gameCanvas");
-      new Game(canvas);
+      const game = new Game(canvas);
+      if (/[?&]debug\b/.test(window.location.search)) window.fightGame = game;
     });
   </script>
 </body>

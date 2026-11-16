@@ -13,6 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const os = require("os");
+const zlib = require("zlib");
 const { performance } = require("perf_hooks");
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -36,6 +37,8 @@ const MIME_TYPES = {
 // 對外公開的靜態檔案白名單
 const PUBLIC_FILES = new Set(["index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"]);
 const PUBLIC_DIRS = ["人物角色"];
+const COMPRESSIBLE_EXTS = new Set([".html", ".js", ".css", ".json", ".svg", ".webmanifest"]);
+const gzipCache = new Map(); // 相對路徑 -> { etag, body }
 
 // 單一 WebSocket 訊息上限 (遊戲封包都很小，超過即視為惡意並斷線)
 const MAX_WS_PAYLOAD = 16 * 1024;
@@ -75,6 +78,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (reqPath === "/") reqPath = "/index.html";
+  if (reqPath === "/favicon.ico") reqPath = "/icon-192.png"; // 瀏覽器會自動要 favicon，直接給圖示
 
   // 白名單：只對外提供前端需要的檔案 (不外流 server.js、.git、package.json 等)
   const safePath = path.normalize(reqPath).replace(/^(\.\.[/\\])+/, "");
@@ -100,8 +104,47 @@ const server = http.createServer((req, res) => {
     const cacheControl = PUBLIC_DIRS.some((dir) => relPath.startsWith(dir + "/")) || relPath.startsWith("icon")
       ? "public, max-age=604800"
       : "no-cache";
-    res.writeHead(200, { "Content-Type": contentType, "Cache-Control": cacheControl });
-    fs.createReadStream(fullPath).pipe(res);
+    // ETag：檔案沒變就回 304，重新整理不必再下載整份 index.html
+    const etag = `"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
+    const headers = { "Content-Type": contentType, "Cache-Control": cacheControl, "ETag": etag };
+    if (req.headers["if-none-match"] === etag) {
+      res.writeHead(304, headers);
+      res.end();
+      return;
+    }
+    // 文字檔 (index.html 約 290KB) 以 gzip 傳送，壓縮結果依 ETag 快取，只壓一次
+    const wantsGzip = COMPRESSIBLE_EXTS.has(ext) && /\bgzip\b/.test(String(req.headers["accept-encoding"] || ""));
+    if (!wantsGzip) {
+      res.writeHead(200, headers);
+      fs.createReadStream(fullPath).pipe(res);
+      return;
+    }
+    headers["Content-Encoding"] = "gzip";
+    headers["Vary"] = "Accept-Encoding";
+    const cached = gzipCache.get(relPath);
+    if (cached && cached.etag === etag) {
+      res.writeHead(200, headers);
+      res.end(cached.body);
+      return;
+    }
+    fs.readFile(fullPath, (readErr, raw) => {
+      if (readErr) {
+        res.writeHead(500);
+        res.end();
+        return;
+      }
+      zlib.gzip(raw, (zipErr, body) => {
+        if (zipErr) {
+          delete headers["Content-Encoding"];
+          res.writeHead(200, headers);
+          res.end(raw);
+          return;
+        }
+        gzipCache.set(relPath, { etag, body });
+        res.writeHead(200, headers);
+        res.end(body);
+      });
+    });
   });
 });
 
@@ -131,12 +174,21 @@ function encodeWsFrame(opcode, payloadBuffer) {
   return Buffer.concat([header, payloadBuffer]);
 }
 
+function encodeJsonFrame(data) {
+  return encodeWsFrame(0x01, Buffer.from(JSON.stringify(data), "utf8"));
+}
+
+function sendFrame(client, frame) {
+  if (!client || client.closed || !client.socket || client.socket.destroyed) return;
+  try {
+    client.socket.write(frame);
+  } catch (_) { }
+}
+
 function sendJson(client, data) {
   if (!client || client.closed || !client.socket || client.socket.destroyed) return;
   try {
-    const payload = Buffer.from(JSON.stringify(data), "utf8");
-    const frame = encodeWsFrame(0x01, payload);
-    client.socket.write(frame);
+    client.socket.write(encodeJsonFrame(data));
   } catch (_) { }
 }
 
@@ -171,9 +223,12 @@ function serializeRoomSummary(room) {
 
 function broadcastRoomList() {
   const list = Array.from(rooms.values()).map(serializeRoomSummary);
-  const msg = { type: "room_list", rooms: list };
+  const frame = encodeJsonFrame({ type: "room_list", rooms: list });
   for (const c of clients.values()) {
-    sendJson(c, msg);
+    // 對戰中的玩家看不到大廳，不必收房間列表 (回到大廳時前端會主動要一次)
+    const room = c.roomId ? rooms.get(c.roomId) : null;
+    if (room && room.status === "fighting") continue;
+    sendFrame(c, frame);
   }
 }
 
@@ -681,49 +736,49 @@ const CHARACTER_SPECS = [
   {
     id: "crane_king", name: "吊車大王", maxHp: 126, speedMult: 1.0, themeColor: "#e63946", ultTitle: "萬噸天吊・皇室滿天金雨",
     attacks: {
-      light: { name: "light", startup: 0.05, active: 0.08, recovery: 0.11, isProjectile: true, projType: "coins", projCount: 3, projSpeed: 580, projLife: 0.36, width: 30, height: 28, offsetX: 8, offsetZ: 18, depthTolerance: 36, damage: 5, hitstun: 0.16, knockbackX: 140, knockbackZ: 0, hitstop: 0.04 },
-      heavy: { name: "heavy", startup: 0.20, active: 0.16, recovery: 0.22, width: 116, height: 84, offsetX: 14, offsetZ: 0, depthTolerance: 52, damage: 25, hitstun: 0.38, knockbackX: 640, knockbackZ: 320, hitstop: 0.10 },
-      ult: { name: "ult", startup: 0.18, active: 0.28, recovery: 0.24, superArmor: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "coins", projCount: 5, projSpeed: 640, projLife: 0.65, width: 34, height: 30, offsetX: 10, offsetZ: 18, depthTolerance: 48, damage: 8, hitstun: 0.24, knockbackX: 260, knockbackZ: 120, hitstop: 0.05 }, width: 220, height: 110, offsetX: 8, offsetZ: 0, depthTolerance: 74, damage: 42, hitstun: 0.50, knockbackX: 780, knockbackZ: 430, hitstop: 0.14 }
+      light: { name: "light", startup: 0.05, active: 0.08, recovery: 0.11, isProjectile: true, projType: "coins", projCount: 3, projSpeed: 580, projLife: 0.36, width: 30, height: 28, offsetX: 8, offsetZ: 18, depthTolerance: 36, damage: 5, hitstun: 0.16, knockbackX: 140, knockbackZ: 0, hitstop: 0.04, hitSfx: "hit_coins" },
+      heavy: { name: "heavy", startup: 0.20, active: 0.16, recovery: 0.22, width: 116, height: 84, offsetX: 14, offsetZ: 0, depthTolerance: 52, damage: 25, hitstun: 0.38, knockbackX: 640, knockbackZ: 320, hitstop: 0.10, hitSfx: "hit_crane" },
+      ult: { name: "ult", startup: 0.18, active: 0.28, recovery: 0.24, superArmor: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "coins", projCount: 5, projSpeed: 640, projLife: 0.65, width: 34, height: 30, offsetX: 10, offsetZ: 18, depthTolerance: 48, damage: 8, hitstun: 0.24, knockbackX: 260, knockbackZ: 120, hitstop: 0.05, hitSfx: "hit_coins" }, width: 220, height: 110, offsetX: 8, offsetZ: 0, depthTolerance: 74, damage: 42, hitstun: 0.50, knockbackX: 780, knockbackZ: 430, hitstop: 0.14, hitSfx: "hit_crane" }
     }
   },
   {
-    id: "monster_boo", name: "噁心", maxHp: 114, speedMult: 1.14, themeColor: "#9d4edd", ultTitle: "深淵狂暴・萬魔六連噬",
+    id: "monster_boo", name: "狗王", maxHp: 114, speedMult: 1.14, themeColor: "#9d4edd", ultTitle: "深淵狂暴・萬魔六連噬",
     attacks: {
-      light: { name: "light", startup: 0.04, active: 0.12, recovery: 0.10, centeredHitbox: true, width: 128, height: 44, offsetX: 0, offsetZ: 14, depthTolerance: 40, damage: 8, hitstun: 0.20, knockbackX: 220, knockbackZ: 0, hitstop: 0.05 },
-      heavy: { name: "heavy", startup: 0.13, active: 0.32, recovery: 0.19, width: 78, height: 54, offsetX: 0, offsetZ: 6, depthTolerance: 44, lungeX: 470, multiHitInterval: 0.09, damage: 8, hitstun: 0.26, knockbackX: 340, knockbackZ: 130, hitstop: 0.045 },
-      ult: { name: "ult", startup: 0.12, active: 0.46, recovery: 0.20, superArmor: true, width: 115, height: 74, offsetX: 0, offsetZ: 2, depthTolerance: 62, lungeX: 590, multiHitInterval: 0.075, damage: 9, hitstun: 0.34, knockbackX: 420, knockbackZ: 190, hitstop: 0.05 }
+      light: { name: "light", startup: 0.04, active: 0.12, recovery: 0.10, centeredHitbox: true, width: 128, height: 44, offsetX: 0, offsetZ: 14, depthTolerance: 40, damage: 8, hitstun: 0.20, knockbackX: 220, knockbackZ: 0, hitstop: 0.05, hitSfx: "hit_whip" },
+      heavy: { name: "heavy", startup: 0.13, active: 0.32, recovery: 0.19, width: 78, height: 54, offsetX: 0, offsetZ: 6, depthTolerance: 44, lungeX: 470, multiHitInterval: 0.09, damage: 8, hitstun: 0.26, knockbackX: 340, knockbackZ: 130, hitstop: 0.045, hitSfx: "hit_bite" },
+      ult: { name: "ult", startup: 0.12, active: 0.46, recovery: 0.20, superArmor: true, width: 115, height: 74, offsetX: 0, offsetZ: 2, depthTolerance: 62, lungeX: 590, multiHitInterval: 0.075, damage: 9, hitstun: 0.34, knockbackX: 420, knockbackZ: 190, hitstop: 0.05, hitSfx: "hit_bite" }
     }
   },
   {
     id: "hell_judge", name: "地獄黑面潔", maxHp: 114, speedMult: 0.98, themeColor: "#b5179e", ultTitle: "無間煉獄・閻羅萬鬼陣",
     attacks: {
-      light: { name: "light", startup: 0.06, active: 0.08, recovery: 0.14, isProjectile: true, projType: "ink_slash", projSpeed: 640, projLife: 0.58, width: 36, height: 44, offsetX: 8, offsetZ: 12, depthTolerance: 36, damage: 8, hitstun: 0.20, knockbackX: 180, knockbackZ: 0, hitstop: 0.05 },
-      heavy: { name: "heavy", startup: 0.25, active: 0.18, recovery: 0.24, trackOpponent: true, width: 86, height: 110, offsetX: 0, offsetZ: 0, depthTolerance: 48, damage: 23, hitstun: 0.36, knockbackX: 480, knockbackZ: 360, hitstop: 0.095 },
-      ult: { name: "ult", startup: 0.20, active: 0.28, recovery: 0.24, superArmor: true, trackOpponent: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "ink_slash", projCount: 3, projSpeed: 680, projLife: 0.70, width: 42, height: 50, offsetX: 10, offsetZ: 12, depthTolerance: 48, damage: 10, hitstun: 0.26, knockbackX: 280, knockbackZ: 140, hitstop: 0.055 }, width: 190, height: 140, offsetX: 0, offsetZ: 0, depthTolerance: 78, damage: 44, hitstun: 0.48, knockbackX: 680, knockbackZ: 450, hitstop: 0.14 }
+      light: { name: "light", startup: 0.06, active: 0.08, recovery: 0.14, isProjectile: true, projType: "ink_slash", projSpeed: 640, projLife: 0.58, width: 36, height: 44, offsetX: 8, offsetZ: 12, depthTolerance: 36, damage: 8, hitstun: 0.20, knockbackX: 180, knockbackZ: 0, hitstop: 0.05, hitSfx: "hit_ink" },
+      heavy: { name: "heavy", startup: 0.25, active: 0.18, recovery: 0.24, trackOpponent: true, width: 86, height: 110, offsetX: 0, offsetZ: 0, depthTolerance: 48, damage: 23, hitstun: 0.36, knockbackX: 480, knockbackZ: 360, hitstop: 0.095, hitSfx: "hit_pillar" },
+      ult: { name: "ult", startup: 0.20, active: 0.28, recovery: 0.24, superArmor: true, trackOpponent: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "ink_slash", projCount: 3, projSpeed: 680, projLife: 0.70, width: 42, height: 50, offsetX: 10, offsetZ: 12, depthTolerance: 48, damage: 10, hitstun: 0.26, knockbackX: 280, knockbackZ: 140, hitstop: 0.055, hitSfx: "hit_ink" }, width: 190, height: 140, offsetX: 0, offsetZ: 0, depthTolerance: 78, damage: 44, hitstun: 0.48, knockbackX: 680, knockbackZ: 450, hitstop: 0.14, hitSfx: "hit_pillar" }
     }
   },
   {
     id: "life_warrior", name: "生話戰士", maxHp: 120, speedMult: 1.04, themeColor: "#588157", ultTitle: "家政奧義・終極龍捲大掃除",
     attacks: {
-      light: { name: "light", startup: 0.06, active: 0.08, recovery: 0.13, isProjectile: true, projType: "boomerang", projSpeed: 650, projLife: 0.72, width: 30, height: 30, offsetX: 8, offsetZ: 16, depthTolerance: 36, damage: 7, hitstun: 0.18, knockbackX: 160, knockbackZ: 0, hitstop: 0.045 },
-      heavy: { name: "heavy", startup: 0.16, active: 0.34, recovery: 0.22, centeredHitbox: true, lungeX: 340, multiHitInterval: 0.10, width: 158, height: 56, offsetX: 0, offsetZ: 6, depthTolerance: 48, damage: 8, hitstun: 0.28, knockbackX: 480, knockbackZ: 220, hitstop: 0.055 },
-      ult: { name: "ult", startup: 0.14, active: 0.44, recovery: 0.22, superArmor: true, centeredHitbox: true, lungeX: 440, multiHitInterval: 0.085, alsoSpawnProjectiles: { name: "ult_proj", projType: "boomerang", projCount: 3, projSpeed: 700, projLife: 0.85, width: 32, height: 32, offsetX: 8, offsetZ: 16, depthTolerance: 46, damage: 9, hitstun: 0.22, knockbackX: 220, knockbackZ: 90, hitstop: 0.045 }, width: 220, height: 84, offsetX: 0, offsetZ: 0, depthTolerance: 68, damage: 10, hitstun: 0.34, knockbackX: 560, knockbackZ: 310, hitstop: 0.06 }
+      light: { name: "light", startup: 0.06, active: 0.08, recovery: 0.13, isProjectile: true, projType: "boomerang", projSpeed: 650, projLife: 0.72, width: 30, height: 30, offsetX: 8, offsetZ: 16, depthTolerance: 36, damage: 7, hitstun: 0.18, knockbackX: 160, knockbackZ: 0, hitstop: 0.045, hitSfx: "hit_clang" },
+      heavy: { name: "heavy", startup: 0.16, active: 0.34, recovery: 0.22, centeredHitbox: true, lungeX: 340, multiHitInterval: 0.10, width: 158, height: 56, offsetX: 0, offsetZ: 6, depthTolerance: 48, damage: 8, hitstun: 0.28, knockbackX: 480, knockbackZ: 220, hitstop: 0.055, hitSfx: "hit_broom" },
+      ult: { name: "ult", startup: 0.14, active: 0.44, recovery: 0.22, superArmor: true, centeredHitbox: true, lungeX: 440, multiHitInterval: 0.085, alsoSpawnProjectiles: { name: "ult_proj", projType: "boomerang", projCount: 3, projSpeed: 700, projLife: 0.85, width: 32, height: 32, offsetX: 8, offsetZ: 16, depthTolerance: 46, damage: 9, hitstun: 0.22, knockbackX: 220, knockbackZ: 90, hitstop: 0.045, hitSfx: "hit_clang" }, width: 220, height: 84, offsetX: 0, offsetZ: 0, depthTolerance: 68, damage: 10, hitstun: 0.34, knockbackX: 560, knockbackZ: 310, hitstop: 0.06, hitSfx: "hit_broom" }
     }
   },
   {
     id: "slaking_king", name: "請假王", maxHp: 144, speedMult: 0.90, themeColor: "#a47148", ultTitle: "無敵病假單・泰山崩裂震",
     attacks: {
-      light: { name: "light", startup: 0.06, active: 0.14, recovery: 0.12, lungeX: 300, width: 68, height: 48, offsetX: 0, offsetZ: 8, depthTolerance: 40, damage: 11, hitstun: 0.24, knockbackX: 380, knockbackZ: 140, hitstop: 0.06 },
-      heavy: { name: "heavy", startup: 0.25, active: 0.18, recovery: 0.32, centeredHitbox: true, superArmor: true, width: 215, height: 70, offsetX: 0, offsetZ: 0, depthTolerance: 66, damage: 30, hitstun: 0.42, knockbackX: 720, knockbackZ: 360, hitstop: 0.115 },
-      ult: { name: "ult", startup: 0.22, active: 0.26, recovery: 0.26, centeredHitbox: true, superArmor: true, width: 330, height: 95, offsetX: 0, offsetZ: 0, depthTolerance: 95, damage: 48, hitstun: 0.52, knockbackX: 840, knockbackZ: 460, hitstop: 0.15 }
+      light: { name: "light", startup: 0.06, active: 0.14, recovery: 0.12, lungeX: 300, width: 68, height: 48, offsetX: 0, offsetZ: 8, depthTolerance: 40, damage: 11, hitstun: 0.24, knockbackX: 380, knockbackZ: 140, hitstop: 0.06, hitSfx: "hit_belly" },
+      heavy: { name: "heavy", startup: 0.25, active: 0.18, recovery: 0.32, centeredHitbox: true, superArmor: true, width: 215, height: 70, offsetX: 0, offsetZ: 0, depthTolerance: 66, damage: 30, hitstun: 0.42, knockbackX: 720, knockbackZ: 360, hitstop: 0.115, hitSfx: "hit_quake" },
+      ult: { name: "ult", startup: 0.22, active: 0.26, recovery: 0.26, centeredHitbox: true, superArmor: true, width: 330, height: 95, offsetX: 0, offsetZ: 0, depthTolerance: 95, damage: 48, hitstun: 0.52, knockbackX: 840, knockbackZ: 460, hitstop: 0.15, hitSfx: "hit_quake" }
     }
   },
   {
     id: "wind_lion", name: "風濕爺", maxHp: 132, speedMult: 0.95, themeColor: "#bc6c25", ultTitle: "金門狂風獅吼・天降星隕陣",
     attacks: {
-      light: { name: "light", startup: 0.06, active: 0.11, recovery: 0.12, width: 86, height: 52, offsetX: 4, offsetZ: 8, depthTolerance: 40, damage: 8, hitstun: 0.24, knockbackX: 460, knockbackZ: 120, hitstop: 0.06 },
-      heavy: { name: "heavy", startup: 0.18, active: 0.08, recovery: 0.22, isProjectile: true, projType: "bouncing_orb", projSpeed: 470, projLife: 1.25, width: 44, height: 44, offsetX: 8, offsetZ: 0, depthTolerance: 42, damage: 21, hitstun: 0.35, knockbackX: 580, knockbackZ: 280, hitstop: 0.09 },
-      ult: { name: "ult", startup: 0.16, active: 0.26, recovery: 0.22, superArmor: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "bouncing_orb", projCount: 3, projSpeed: 520, projLife: 1.35, width: 46, height: 46, offsetX: 10, offsetZ: 0, depthTolerance: 50, damage: 15, hitstun: 0.34, knockbackX: 560, knockbackZ: 280, hitstop: 0.08 }, width: 195, height: 86, offsetX: 4, offsetZ: 0, depthTolerance: 68, damage: 38, hitstun: 0.46, knockbackX: 740, knockbackZ: 380, hitstop: 0.14 }
+      light: { name: "light", startup: 0.06, active: 0.11, recovery: 0.12, width: 86, height: 52, offsetX: 4, offsetZ: 8, depthTolerance: 40, damage: 8, hitstun: 0.24, knockbackX: 460, knockbackZ: 120, hitstop: 0.06, hitSfx: "hit_roar" },
+      heavy: { name: "heavy", startup: 0.18, active: 0.08, recovery: 0.22, isProjectile: true, projType: "bouncing_orb", projSpeed: 470, projLife: 1.25, width: 44, height: 44, offsetX: 8, offsetZ: 0, depthTolerance: 42, damage: 21, hitstun: 0.35, knockbackX: 580, knockbackZ: 280, hitstop: 0.09, hitSfx: "hit_stone" },
+      ult: { name: "ult", startup: 0.16, active: 0.26, recovery: 0.22, superArmor: true, alsoSpawnProjectiles: { name: "ult_proj", projType: "bouncing_orb", projCount: 3, projSpeed: 520, projLife: 1.35, width: 46, height: 46, offsetX: 10, offsetZ: 0, depthTolerance: 50, damage: 15, hitstun: 0.34, knockbackX: 560, knockbackZ: 280, hitstop: 0.08, hitSfx: "hit_stone" }, width: 195, height: 86, offsetX: 4, offsetZ: 0, depthTolerance: 68, damage: 38, hitstun: 0.46, knockbackX: 740, knockbackZ: 380, hitstop: 0.14, hitSfx: "hit_roar" }
     }
   }
 ];
@@ -909,10 +964,10 @@ class ServerPickup {
         if (this.type === "heal") {
           const healed = Math.min(f.maxHp - f.hp, 28);
           f.hp = Math.min(f.maxHp, f.hp + 28);
-          match.emitEvent({ kind: "text", x: fx, y: f.getDrawTopY() - 12, text: healed > 0 ? `+${healed} HP 🍗` : "滿血 🍗", color: "#52b788", scale: 1.15, sfx: "pickup" });
+          match.emitEvent({ kind: "text", x: fx, y: f.getDrawTopY() - 12, text: healed > 0 ? `+${healed} HP 🍗` : "滿血 🍗", color: "#52b788", scale: 1.15, sfx: "pickup_heal" });
         } else {
           f.addEnergy(40);
-          match.emitEvent({ kind: "text", x: fx, y: f.getDrawTopY() - 12, text: "+40% 氣 ⚡", color: "#ffd166", scale: 1.15, sfx: "pickup" });
+          match.emitEvent({ kind: "text", x: fx, y: f.getDrawTopY() - 12, text: "+40% 氣 ⚡", color: "#ffd166", scale: 1.15, sfx: "pickup_energy" });
         }
         this.active = false;
         break;
@@ -1237,6 +1292,12 @@ class ServerMatch {
     if (buf) buf.applyPacket(held, pressed);
   }
   isRageTime() { return this.roundTimer <= GAME_CONFIG.rageTimeThreshold && !this.koWinner; }
+  // 所有角色「目前在做什麼」的摘要；只要有人換動作就值得立刻通知所有玩家
+  actionSignature() {
+    let sig = "";
+    for (const f of this.fighters) sig += f.state + (f.currentAttack ? f.currentAttack.name : "") + "|";
+    return sig;
+  }
   emitEvent(event) { broadcastMatchEvent(this.room, event); }
   getNearestOpponent(fighter, preferVulnerable = false) {
     let best = null, bestDist = Infinity, fallback = null, fallbackDist = Infinity;
@@ -1371,10 +1432,11 @@ class ServerMatch {
     const tag = isUlt ? " 必殺!!" : (isHeavyOrUlt ? "!" : "");
     this.emitEvent({
       kind: "hit", hitX, hitY, isHeavyOrUlt, isUlt,
+      att: attacker ? attacker.id : 0, def: defender.id, ko: defender.hp <= 0,
       dmgText: `-${actualDmg}${tag}`,
       color: isUlt ? "#ff0054" : (isHeavyOrUlt ? "#ffbe0b" : "#ffffff"),
       scale: isUlt ? 1.55 : (isHeavyOrUlt ? 1.35 : 1.0),
-      sfx: defender.hp <= 0 ? "ko" : (isUlt ? "ult" : (isHeavyOrUlt ? "heavy" : "light"))
+      sfx: defender.hp <= 0 ? "ko" : (attackData.hitSfx || (isUlt ? "ult" : (isHeavyOrUlt ? "heavy" : "light")))
     });
     if (gangedUp && now - defender._lastGangWarn > 1.2) {
       defender._lastGangWarn = now;
@@ -1435,22 +1497,22 @@ class ServerMatch {
 
 function broadcastMatchState(room) {
   if (!room || !room.match) return;
-  const packet = { type: "game_state", state: room.match.serializeState() };
+  const frame = encodeJsonFrame({ type: "game_state", state: room.match.serializeState() });
   for (const p of room.players) {
     if (p.isCOM) continue;
     const c = clients.get(p.clientId);
     // 防止慢速連線堆積過時影格造成延遲雪球
-    if (c && c.socket && (c.socket.writableLength || 0) <= 16384) sendJson(c, packet);
+    if (c && c.socket && (c.socket.writableLength || 0) <= 16384) sendFrame(c, frame);
   }
 }
 
 function broadcastMatchEvent(room, event) {
   if (!room) return;
-  const packet = { type: "game_event", event };
+  const frame = encodeJsonFrame({ type: "game_event", event });
   for (const p of room.players) {
     if (p.isCOM) continue;
     const c = clients.get(p.clientId);
-    if (c) sendJson(c, packet);
+    if (c) sendFrame(c, frame);
   }
 }
 
@@ -1590,7 +1652,10 @@ setInterval(() => {
       if (room.status === "fighting" && room.match) {
         const prevKo = room.match.koWinner;
         room.match.update(FIXED_DT);
-        if (shouldBroadcast || room.match.koWinner !== prevKo) room.needsBroadcast = true;
+        const actionSig = room.match.actionSignature();
+        const actionChanged = actionSig !== room.match.lastActionSig;
+        room.match.lastActionSig = actionSig;
+        if (shouldBroadcast || actionChanged || room.match.koWinner !== prevKo) room.needsBroadcast = true;
       }
     }
   }
